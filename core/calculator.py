@@ -1,3 +1,4 @@
+import csv
 import math
 from core.prices import load_all
 
@@ -180,94 +181,98 @@ def get_preisanpassung_data(
     a_baumwolle_o=3.47, b_baumwolle_o=0.66, y0_baumwolle_o=26.04,
     a_leinen=6.39, b_leinen=0.9, y0_leinen=34.2,
 ):
-    import numpy as np
     import os
-    import pandas as pd
 
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
-    csv_path = os.path.join(data_dir, "Preisliste_DR_Classic.csv")
-    df = pd.read_csv(csv_path, na_values=["", " "])
-    df["Baumwolle_preis"] = pd.to_numeric(df["Baumwolle_preis"], errors="coerce")
-    df["Leinen_preis"]    = pd.to_numeric(df["Leinen_preis"],    errors="coerce")
-    df["area_m2"] = df["Fläche_m2"] / 10_000
+    # ── pure-Python linspace (no numpy) ──────────────────────────────────────
+    def linspace(start, stop, n):
+        if n == 1:
+            return [start]
+        return [start + (stop - start) * i / (n - 1) for i in range(n)]
 
+    # ── material cost for a square canvas of given area ───────────────────────
     def mat_area(area_m2, fabric, support):
         side = math.sqrt(area_m2 * 10_000)
         anz_lang, anz_kurz = SUPPORT_MAP[support]
         _, prod = load_all()
         qcm_arles = prod["arles_4x10m2_roll"] / (4 * 100_000)
         qcm_leine = prod["leine_2x10m2_roll"] / (2 * 100_000)
-        cm_cl = prod["keilrahmen_classic_1m"] / 100
+        cm_cl  = prod["keilrahmen_classic_1m"] / 100
         qcm_gl = prod["leim_5l"] / ((50 / 1.5) * 10_000)
         qcm_co = prod["farbe_5l"] / ((50 / 0.6) * 10_000)
-
         qcm_f, qcm_liq = _qcm_berechnen(side, side, "classic_double")
         fp = (qcm_arles if fabric == "Baumwolle" else qcm_leine) * qcm_f
-        wf = 2 * (side + side) * 2
-        ws = anz_lang * side + anz_kurz * side
-        wp = (wf + ws) * cm_cl
+        wp = (2 * (side + side) * 2 + (anz_lang + anz_kurz) * side) * cm_cl
         lp = (qcm_gl + qcm_co * 6) * qcm_liq
         return round(fp + wp + lp, 2)
 
-    def verk_curve(mat_arr, a, b, y0):
-        return [a * (m ** b) + y0 for m in mat_arr]
+    def verk_curve(mat_list, a, b, y0):
+        return [round(a * (m ** b) + y0, 2) for m in mat_list]
+
+    LABELS = {
+        "no_support":              "Kein Zwischenstück",
+        "single_support":          "Eins",
+        "double_support_cross":    "Zwei (Kreuz)",
+        "double_support_parallel": "Zwei (Parallel)",
+        "triple_support":          "Drei (Doppelkreuz)",
+        "quad_support":            "Vier (Viererkreuz)",
+    }
 
     supports_b = [
-        ("no_support",              np.linspace(0.01, 1.58, 80)),
-        ("single_support",          np.linspace(1.58, 10.0, 80)),
+        ("no_support",              linspace(0.01, 1.58, 80)),
+        ("single_support",          linspace(1.58, 10.0, 80)),
     ]
     supports_l = [
-        ("no_support",              np.linspace(0.01, 0.64, 80)),
-        ("single_support",          np.linspace(0.144, 1.68, 80)),
-        ("double_support_cross",    np.linspace(0.378, 3.2, 80)),
-        ("double_support_parallel", np.linspace(0.64, 4.41, 80)),
-        ("triple_support",          np.linspace(1.68, 7.0, 80)),
-        ("quad_support",            np.linspace(4.41, 10.0, 80)),
+        ("no_support",              linspace(0.01, 0.64, 80)),
+        ("single_support",          linspace(0.144, 1.68, 80)),
+        ("double_support_cross",    linspace(0.378, 3.2,  80)),
+        ("double_support_parallel", linspace(0.64,  4.41, 80)),
+        ("triple_support",          linspace(1.68,  7.0,  80)),
+        ("quad_support",            linspace(4.41,  10.0, 80)),
     ]
-
-    labels_map = {
-        "no_support": "Kein Zwischenstück",
-        "single_support": "Eins",
-        "double_support_cross": "Zwei (Kreuz)",
-        "double_support_parallel": "Zwei (Parallel)",
-        "triple_support": "Drei (Doppelkreuz)",
-        "quad_support": "Vier (Viererkreuz)",
-    }
 
     curves_b, curves_l = [], []
 
     for sup, xs in supports_b:
-        mat = np.array([mat_area(x, "Baumwolle", sup) for x in xs])
+        mat = [mat_area(x, "Baumwolle", sup) for x in xs]
         is_large = sup == "single_support"
-        if is_large:
-            verk = verk_curve(mat, a_baumwolle_o, b_baumwolle_o, y0_baumwolle_o)
-        else:
-            verk = verk_curve(mat, a_baumwolle, b_baumwolle, y0_baumwolle)
-        curves_b.append({
-            "label": labels_map[sup],
-            "x": xs.tolist(),
-            "y": [round(v, 2) for v in verk],
-        })
+        verk = (verk_curve(mat, a_baumwolle_o, b_baumwolle_o, y0_baumwolle_o)
+                if is_large else
+                verk_curve(mat, a_baumwolle, b_baumwolle, y0_baumwolle))
+        curves_b.append({"label": LABELS[sup], "x": [round(v, 4) for v in xs], "y": verk})
 
     for sup, xs in supports_l:
-        mat = np.array([mat_area(x, "Leinen", sup) for x in xs])
+        mat  = [mat_area(x, "Leinen", sup) for x in xs]
         verk = verk_curve(mat, a_leinen, b_leinen, y0_leinen)
-        curves_l.append({
-            "label": labels_map[sup],
-            "x": xs.tolist(),
-            "y": [round(v, 2) for v in verk],
-        })
+        curves_l.append({"label": LABELS[sup], "x": [round(v, 4) for v in xs], "y": verk})
 
-    # CSV scatter points
+    # ── CSV scatter points (stdlib csv, no pandas) ────────────────────────────
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+    csv_path = os.path.join(data_dir, "Preisliste_DR_Classic.csv")
+
     scatter_b, scatter_l = [], []
-    for _, row in df.dropna(subset=["Baumwolle_preis"]).iterrows():
-        scatter_b.append({"x": round(float(row["area_m2"]), 4), "y": float(row["Baumwolle_preis"])})
-    for _, row in df.dropna(subset=["Leinen_preis"]).iterrows():
-        scatter_l.append({"x": round(float(row["area_m2"]), 4), "y": float(row["Leinen_preis"])})
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                area = float(row["Fläche_m2"]) / 10_000
+            except (ValueError, KeyError):
+                continue
+            bp = row.get("Baumwolle_preis", "").strip()
+            lp = row.get("Leinen_preis",    "").strip()
+            if bp:
+                try:
+                    scatter_b.append({"x": round(area, 4), "y": float(bp)})
+                except ValueError:
+                    pass
+            if lp:
+                try:
+                    scatter_l.append({"x": round(area, 4), "y": float(lp)})
+                except ValueError:
+                    pass
 
     return {
         "curves_baumwolle": curves_b,
-        "curves_leinen": curves_l,
+        "curves_leinen":    curves_l,
         "scatter_baumwolle": scatter_b,
-        "scatter_leinen": scatter_l,
+        "scatter_leinen":    scatter_l,
     }
