@@ -105,3 +105,66 @@ body {
 .fabric-row, .frame-row {
   border-radius: 0.4rem;
 }
+
+/* ── History chips ────────────────────────────────────────────────────────── */
+
+.history-chip {
+  font-size: 0.78rem;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* ── Order panel ─────────────────────────────────────────────────────────── */
+
+#order-panel > .card {
+  border-color: #198754 !important;
+}
+
+/* ── Print ───────────────────────────────────────────────────────────────── */
+
+@media print {
+  /* Hide site chrome */
+  nav.navbar,
+  footer { display: none !important; }
+
+  /* Clean up body background */
+  body, main { background: #fff !important; padding: 0 !important; }
+
+  /* Make right column fill the page */
+  .col-lg-7 {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove card shadows */
+  .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; }
+
+  /* Keep the price gradient readable */
+  .selling-price-box {
+    background: #e8f4fd !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Stripe colours for the invoice table */
+  .table-striped > tbody > tr:nth-child(odd) {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Force order panel visible so it prints even when hidden */
+  #order-panel { display: block !important; }
+
+  /* Avoid orphan rows */
+  #result-panel  { break-inside: avoid; }
+  #order-panel   { break-before: auto; }
+
+  /* Hide in-panel action buttons */
+  #btn-add-order,
+  #btn-compare,
+  #btn-copy { display: none !important; }
+}

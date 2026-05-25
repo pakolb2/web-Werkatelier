@@ -1,10 +1,37 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from functools import wraps
+from flask import Flask, render_template, request, jsonify, Response
 from core.prices import load_all, save_all, default_preise_materialverkauf, default_preise_leinwandproduktion
 from core import calculator
 
 app = Flask(__name__)
 
+
+# ── HTTP Basic Auth ───────────────────────────────────────────────────────────
+
+def _check_auth(password: str) -> bool:
+    pw = os.environ.get("ADMIN_PASSWORD", "")
+    if not pw:
+        return True   # No password configured → open access (dev / first deploy)
+    return password == pw
+
+
+def requires_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not _check_auth(""):  # fast-path: open if no password set
+            auth = request.authorization
+            if not auth or not _check_auth(auth.password):
+                return Response(
+                    "Login erforderlich",
+                    401,
+                    {"WWW-Authenticate": 'Basic realm="Werkatelier Admin"'},
+                )
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ── Page routes ───────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -23,6 +50,7 @@ def materialpreise():
 
 
 @app.route("/aenderung-preise")
+@requires_auth
 def aenderung_preise():
     mat_prices, canvas_prices = load_all()
     return render_template(
@@ -32,28 +60,49 @@ def aenderung_preise():
     )
 
 
+@app.route("/preisliste")
+def preisliste():
+    markup = float(request.args.get("markup", 4.2))
+    rows = calculator.generate_preisliste(markup)
+    return render_template("preisliste.html", rows=rows, markup=markup)
+
+
 @app.route("/preisanpassung")
 def preisanpassung():
     return render_template("preisanpassung.html")
 
 
-# ── API ──────────────────────────────────────────────────────────────────────
-
+# ── API routes ────────────────────────────────────────────────────────────────
 
 @app.route("/api/calculate/canvas", methods=["POST"])
 def api_calculate_canvas():
     d = request.get_json(force=True)
     try:
         result = calculator.berechne_leinwand(
-            length=float(d["length"]),
-            width=float(d["width"]),
-            fabric_type=d["fabric_type"],
-            wood_type=d["wood_type"],
-            anz_strebe_lang=int(d.get("anz_strebe_lang", 0)),
-            anz_strebe_kurz=int(d.get("anz_strebe_kurz", 0)),
-            markup_factor=float(d.get("markup_factor", 4.2)),
+            length       = float(d["length"]),
+            width        = float(d["width"]),
+            fabric_type  = d["fabric_type"],
+            wood_type    = d["wood_type"],
+            anz_strebe_lang = int(d.get("anz_strebe_lang", 0)),
+            anz_strebe_kurz = int(d.get("anz_strebe_kurz", 0)),
+            markup_factor   = float(d.get("markup_factor", 4.2)),
         )
         return jsonify({"ok": True, **result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/compare/canvas", methods=["POST"])
+def api_compare_canvas():
+    d = request.get_json(force=True)
+    try:
+        results = calculator.compare_canvas(
+            length        = float(d["length"]),
+            width         = float(d["width"]),
+            fabric_type   = d["fabric_type"],
+            markup_factor = float(d.get("markup_factor", 4.2)),
+        )
+        return jsonify({"ok": True, "comparisons": results})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
@@ -69,11 +118,23 @@ def api_calculate_material():
 
 
 @app.route("/api/update-prices", methods=["POST"])
+@requires_auth
 def api_update_prices():
     d = request.get_json(force=True)
     try:
-        save_all(d["material_prices"], d["canvas_prices"])
-        return jsonify({"ok": True})
+        saved, json_mat, json_can = save_all(
+            d["material_prices"], d["canvas_prices"]
+        )
+        return jsonify({
+            "ok": True,
+            "saved_to_disk": saved,
+            # Return these so the operator can paste them into Render env vars
+            # for persistence across server restarts.
+            "env_hints": {
+                "PRICES_MATERIAL": json_mat,
+                "PRICES_CANVAS":   json_can,
+            },
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 

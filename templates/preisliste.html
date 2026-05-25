@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Preisliste — Werkatelier{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-1 flex-wrap">
+  <h1 class="mb-0"><i class="bi bi-table me-2 text-primary"></i>Preisliste</h1>
+  <span class="badge bg-secondary">Classic 45 – Doppelrahmen</span>
+  <span class="badge bg-secondary-subtle text-secondary border">Aufschlag {{ markup }}×</span>
+</div>
+<p class="text-secondary small mb-4">
+  Automatisch berechnete Verkaufspreise für Standardformate mit empfohlenen Zwischenstücken.
+  Anderen Aufschlag: <a href="{{ url_for('preisliste') }}?markup=3.5">3.5×</a>
+  · <a href="{{ url_for('preisliste') }}?markup=4.0">4.0×</a>
+  · <a href="{{ url_for('preisliste') }}?markup=4.2">4.2×</a>
+  · <a href="{{ url_for('preisliste') }}?markup=5.0">5.0×</a>
+</p>
+
+<div class="mb-3 d-print-none">
+  <div class="btn-group btn-group-sm" role="group" id="fabric-filter">
+    <input type="radio" class="btn-check" name="fabric" id="fb-all"   value="all"       autocomplete="off" checked>
+    <label class="btn btn-outline-secondary" for="fb-all">Alle</label>
+    <input type="radio" class="btn-check" name="fabric" id="fb-baum"  value="Baumwolle" autocomplete="off">
+    <label class="btn btn-outline-secondary" for="fb-baum">Baumwolle</label>
+    <input type="radio" class="btn-check" name="fabric" id="fb-lein"  value="Leinen"    autocomplete="off">
+    <label class="btn btn-outline-secondary" for="fb-lein">Leinen</label>
+  </div>
+  <button onclick="window.print()" class="btn btn-sm btn-outline-secondary ms-2">
+    <i class="bi bi-printer me-1"></i>Drucken
+  </button>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-sm table-hover align-middle" id="price-table">
+    <thead class="table-dark sticky-top">
+      <tr>
+        <th>Format</th>
+        <th>Fläche</th>
+        <th>Zwischenstück</th>
+        <th class="text-center baumwolle-col" colspan="3">Baumwolle (CHF)</th>
+        <th class="text-center leinen-col" colspan="3">Leinen (CHF)</th>
+      </tr>
+      <tr class="table-secondary small">
+        <th colspan="3"></th>
+        {% for label in ["Einfach", "Doppel", "Museo"] %}
+        <th class="text-end baumwolle-col">{{ label }}</th>
+        {% endfor %}
+        {% for label in ["Einfach", "Doppel", "Museo"] %}
+        <th class="text-end leinen-col">{{ label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td class="fw-semibold">{{ row.label }} cm</td>
+        <td class="text-secondary small">{{ row.area_m2 }} m²</td>
+        <td class="text-secondary small">{{ row.support }}</td>
+        {% for wood in ["classic_single", "classic_double", "museo"] %}
+        <td class="text-end font-monospace baumwolle-col">{{ row.prices.Baumwolle[wood] }}</td>
+        {% endfor %}
+        {% for wood in ["classic_single", "classic_double", "museo"] %}
+        <td class="text-end font-monospace leinen-col">{{ row.prices.Leinen[wood] }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p class="text-secondary small mt-2 d-print-none">
+  Alle Preise in CHF, exkl. MwSt, Arbeitsstunden und Verpackung.
+  Berechnet mit Aufschlagsfaktor {{ markup }}×.
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('input[name="fabric"]').forEach(r => {
+  r.addEventListener('change', () => {
+    const v = r.value;
+    document.querySelectorAll('.baumwolle-col').forEach(el =>
+      el.classList.toggle('d-none', v === 'Leinen'));
+    document.querySelectorAll('.leinen-col').forEach(el =>
+      el.classList.toggle('d-none', v === 'Baumwolle'));
+  });
+});
+</script>
+{% endblock %}

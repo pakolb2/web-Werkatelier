@@ -14,6 +14,12 @@ SEG_PARAMS = [
     ( 160000,   None, 3.2826,  135.9062),
 ]
 
+WOOD_LABELS = {
+    "classic_single": "Classic 45 – Einfach",
+    "classic_double": "Classic 45 – Doppel",
+    "museo":          "Museo 45",
+}
+
 SUPPORT_MAP = {
     "no_support":              (0, 0),
     "single_support":          (0, 1),
@@ -175,6 +181,67 @@ def berechne_material(items):
         "total": f"{_runde_halbwert(total):.2f} CHF",
     }
 
+
+# ── Support auto-selection (mirrors JS autoSupport()) ─────────────────────────
+
+def auto_support(length: float, width: float) -> tuple[int, int, str]:
+    """Return (anz_lang, anz_kurz, label) for a canvas after normalising so length >= width."""
+    l, w = max(length, width), min(length, width)
+    if l < 70:                      return 0, 0, "Kein Zwischenstück"
+    if l < 80:                      return 0, 0, "Kein Zwischenstück"
+    if l < 210 and w < 80:          return 0, 1, "Eins"
+    if l < 210:                     return 1, 1, "Zwei (Kreuz)"
+    if w < 80:                      return 0, 2, "Zwei (Parallel)"
+    if w < 210:                     return 1, 2, "Drei (Doppelkreuz)"
+    return 2, 2, "Vier (Viererkreuz)"
+
+
+# ── Frame-type comparison ─────────────────────────────────────────────────────
+
+def compare_canvas(length: float, width: float, fabric_type: str,
+                   markup_factor: float = 4.2) -> list[dict]:
+    """Calculate all three wood types for one canvas and return them as a list."""
+    al, ak, sup_label = auto_support(length, width)
+    results = []
+    for wood in ("classic_single", "classic_double", "museo"):
+        r = berechne_leinwand(length, width, fabric_type, wood, al, ak, markup_factor)
+        r["wood_label"]   = WOOD_LABELS[wood]
+        r["wood_key"]     = wood
+        r["support_label"] = sup_label
+        results.append(r)
+    return results
+
+
+# ── Pre-calculated price list ─────────────────────────────────────────────────
+
+_STANDARD_SIZES = [
+    (18,24),(24,30),(30,30),(30,40),(40,40),(40,50),(50,50),(50,60),(50,70),
+    (60,60),(60,80),(70,70),(70,100),(80,80),(80,100),(80,120),
+    (100,100),(100,120),(100,140),(100,150),(120,120),(120,150),(150,150),(150,200),
+]
+
+def generate_preisliste(markup_factor: float = 4.2) -> list[dict]:
+    """
+    Returns a list of rows, one per size.
+    Each row: {label, area_m2, support_label, prices: {fabric: {wood: verkaufspreis}}}
+    """
+    rows = []
+    for l_in, w_in in _STANDARD_SIZES:
+        l, w = max(l_in, w_in), min(l_in, w_in)
+        al, ak, sup_label = auto_support(l, w)
+        prices: dict = {}
+        for fabric in ("Baumwolle", "Leinen"):
+            prices[fabric] = {}
+            for wood in ("classic_single", "classic_double", "museo"):
+                r = berechne_leinwand(l, w, fabric, wood, al, ak, markup_factor)
+                prices[fabric][wood] = r["verkaufspreis"]
+        rows.append({
+            "label":       f"{l_in}×{w_in}",
+            "area_m2":     round(l * w / 10_000, 2),
+            "support":     sup_label,
+            "prices":      prices,
+        })
+    return rows
 
 def get_preisanpassung_data(
     a_baumwolle=0.18, b_baumwolle=1.51, y0_baumwolle=0.0,

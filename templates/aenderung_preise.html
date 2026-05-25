@@ -17,9 +17,41 @@
 </div>
 
 <div id="save-success" class="alert alert-success d-none">
-  <i class="bi bi-check-circle me-2"></i>Preise wurden erfolgreich gespeichert.
+  <i class="bi bi-check-circle me-2"></i>Preise wurden gespeichert (gelten sofort im laufenden Server).
 </div>
 <div id="save-error" class="alert alert-danger d-none"></div>
+
+<!-- Render env-var export (shown after first save) -->
+<div id="render-hint" class="d-none mb-4">
+  <div class="card border-info">
+    <div class="card-header bg-info-subtle fw-semibold text-info">
+      <i class="bi bi-cloud-upload me-2"></i>Damit die Preise nach einem Server-Neustart erhalten bleiben…
+    </div>
+    <div class="card-body small">
+      <p class="mb-2">Kopiere diese zwei Werte in dein
+        <a href="https://dashboard.render.com" target="_blank">Render Dashboard</a>
+        → dein Service → <strong>Environment</strong>:</p>
+      <div class="mb-2">
+        <label class="form-label fw-semibold mb-1">PRICES_MATERIAL</label>
+        <div class="input-group input-group-sm">
+          <input type="text" id="hint-mat" class="form-control font-monospace" readonly>
+          <button class="btn btn-outline-secondary" onclick="copyHint('hint-mat')">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+      </div>
+      <div>
+        <label class="form-label fw-semibold mb-1">PRICES_CANVAS</label>
+        <div class="input-group input-group-sm">
+          <input type="text" id="hint-can" class="form-control font-monospace" readonly>
+          <button class="btn btn-outline-secondary" onclick="copyHint('hint-can')">
+            <i class="bi bi-clipboard"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="row g-4">
   <!-- Materialverkaufspreise -->
@@ -96,6 +128,15 @@
 
 {% block scripts %}
 <script>
+function copyHint(id) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.value).then(() => {
+    const btn = el.nextElementSibling;
+    btn.innerHTML = '<i class="bi bi-check"></i>';
+    setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard"></i>', 1500);
+  });
+}
+
 document.getElementById('btn-save-prices').addEventListener('click', async () => {
   const material_prices = {};
   const canvas_prices = {};
@@ -116,6 +157,12 @@ document.getElementById('btn-save-prices').addEventListener('click', async () =>
     if (data.ok) {
       document.getElementById('save-success').classList.remove('d-none');
       document.getElementById('save-error').classList.add('d-none');
+      // Show Render env-var hints
+      if (data.env_hints) {
+        document.getElementById('hint-mat').value = data.env_hints.PRICES_MATERIAL;
+        document.getElementById('hint-can').value = data.env_hints.PRICES_CANVAS;
+        document.getElementById('render-hint').classList.remove('d-none');
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       throw new Error(data.error || 'Unbekannter Fehler');

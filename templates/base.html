@@ -40,6 +40,12 @@
           </a>
         </li>
         <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'preisliste' %}active{% endif %}"
+             href="{{ url_for('preisliste') }}">
+            <i class="bi bi-table me-1"></i>Preisliste
+          </a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link {% if request.endpoint == 'preisanpassung' %}active{% endif %}"
              href="{{ url_for('preisanpassung') }}">
             <i class="bi bi-graph-up me-1"></i>Analyse
