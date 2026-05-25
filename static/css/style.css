@@ -1,0 +1,107 @@
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+body {
+  background-color: #f0f2f5;
+}
+
+.ls-1 { letter-spacing: 0.06em; }
+.x-small { font-size: 0.72rem; }
+.font-monospace { font-family: 'SF Mono', 'Fira Code', monospace; }
+
+/* ── Home page feature cards ──────────────────────────────────────────────── */
+
+.card-hover {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+
+/* ── Material toggle buttons ──────────────────────────────────────────────── */
+
+.btn-material {
+  border: 2px solid #dee2e6;
+  background: #fff;
+  color: #495057;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+}
+.btn-material:hover {
+  border-color: #0d6efd;
+  background: #f0f6ff;
+  color: #0d6efd;
+}
+.btn-material.active {
+  border-color: #0d6efd;
+  background: #0d6efd;
+  color: #fff;
+}
+
+/* ── Wood frame selector buttons ──────────────────────────────────────────── */
+
+.btn-wood {
+  border: 2px solid #dee2e6;
+  background: #fff;
+  color: #495057;
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+}
+.btn-wood:hover {
+  border-color: #6f4e37;
+  background: #fdf8f3;
+  color: #6f4e37;
+}
+.btn-wood.active {
+  border-color: #6f4e37;
+  background: #6f4e37;
+  color: #fff;
+}
+
+/* ── Preset size chips ─────────────────────────────────────────────────────── */
+
+.preset-btn {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 2rem;
+  white-space: nowrap;
+}
+.preset-btn.active {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: #fff;
+}
+
+/* ── Canvas preview box ──────────────────────────────────────────────────── */
+
+.canvas-preview-box {
+  min-height: 220px;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* ── Selling price result box ─────────────────────────────────────────────── */
+
+.selling-price-box {
+  background: linear-gradient(135deg, #e8f4fd 0%, #dbeafe 100%);
+  border: 1px solid #bfdbfe;
+}
+
+/* ── Result table ─────────────────────────────────────────────────────────── */
+
+#result-tbody td { vertical-align: middle; }
+
+/* ── Accordion (material page) ─────────────────────────────────────────────── */
+
+.accordion-button { padding: 0.75rem 1rem; }
+.accordion-body   { padding: 1rem; }
+
+/* ── Fabric / frame rows (material page) ──────────────────────────────────── */
+
+.fabric-row, .frame-row {
+  border-radius: 0.4rem;
+}

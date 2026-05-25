@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Leinwandpreis — Werkatelier{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h1 class="mb-0"><i class="bi bi-rulers me-2 text-primary"></i>Leinwandpreis</h1>
+  <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Live-Kalkulation</span>
+</div>
+
+<!-- ── Preset sizes ─────────────────────────────────────────────────────────── -->
+<div class="mb-4">
+  <p class="text-secondary small mb-2 fw-semibold text-uppercase ls-1">Standardformate</p>
+  <div class="preset-scroll d-flex flex-wrap gap-1">
+    {% set presets = [
+      (18,24),(24,30),(30,30),(30,40),(40,40),(40,50),(50,50),(50,60),(50,70),
+      (60,60),(60,80),(70,70),(70,100),(80,80),(80,100),(80,120),
+      (100,100),(100,120),(100,140),(100,150),(120,120),(120,150),(150,150),(150,200)
+    ] %}
+    {% for l, w in presets %}
+    <button class="btn btn-sm btn-outline-secondary preset-btn {% if l == w %}btn-square{% endif %}"
+            data-l="{{ l }}" data-w="{{ w }}">
+      {{ l }}×{{ w }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- ── LEFT: inputs ─────────────────────────────────────────────────────── -->
+  <div class="col-lg-5">
+
+    <!-- Material -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body pb-3">
+        <label class="form-label fw-semibold text-uppercase small text-secondary ls-1">Material</label>
+        <div class="d-flex gap-2">
+          <button class="btn btn-material flex-fill" id="btn-baumwolle" data-val="Baumwolle">
+            <span class="d-block fw-bold">Baumwolle</span>
+            <span class="small opacity-75">Arles</span>
+          </button>
+          <button class="btn btn-material flex-fill" id="btn-leinen" data-val="Leinen">
+            <span class="d-block fw-bold">Leinen</span>
+            <span class="small opacity-75">Terane</span>
+          </button>
+        </div>
+        <div id="alert-leinen" class="alert alert-warning mt-2 mb-0 py-2 small d-none">
+          <i class="bi bi-exclamation-triangle me-1"></i>Rolle nur 2 m breit — Breite über 180 cm prüfen!
+        </div>
+      </div>
+    </div>
+
+    <!-- Dimensions -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body pb-3">
+        <label class="form-label fw-semibold text-uppercase small text-secondary ls-1">Masse</label>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1 text-secondary">Länge [cm]</label>
+            <input type="number" id="inp-length" class="form-control form-control-lg text-center fw-bold"
+                   min="1" max="400" placeholder="100">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1 text-secondary">Breite [cm]</label>
+            <input type="number" id="inp-width" class="form-control form-control-lg text-center fw-bold"
+                   min="1" max="400" placeholder="80">
+          </div>
+        </div>
+        <div id="dim-info" class="text-secondary small"></div>
+      </div>
+    </div>
+
+    <!-- Wood frame -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body pb-3">
+        <label class="form-label fw-semibold text-uppercase small text-secondary ls-1">Holzrahmen</label>
+        <div class="d-flex gap-2">
+          <button class="btn btn-wood flex-fill" data-val="classic_single">
+            <span class="d-block fw-semibold small">Classic 45</span>
+            <span class="d-block x-small opacity-75">Einfach · 1.8 cm</span>
+          </button>
+          <button class="btn btn-wood flex-fill active" data-val="classic_double">
+            <span class="d-block fw-semibold small">Classic 45</span>
+            <span class="d-block x-small opacity-75">Doppel · 3.6 cm</span>
+          </button>
+          <button class="btn btn-wood flex-fill" data-val="museo">
+            <span class="d-block fw-semibold small">Museo 45</span>
+            <span class="d-block x-small opacity-75">4.5 cm</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Support -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body pb-2">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-0">Zwischenstücke</label>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="support-override-toggle">
+            <label class="form-check-label small text-secondary" for="support-override-toggle">Manuell</label>
+          </div>
+        </div>
+
+        <!-- Auto display -->
+        <div id="support-auto-display" class="py-1">
+          <span id="support-auto-badge" class="badge bg-info-subtle text-info border border-info-subtle fs-6 px-3 py-2">
+            — cm eingeben
+          </span>
+        </div>
+
+        <!-- Manual override -->
+        <div id="support-manual" class="d-none mt-2">
+          <div id="support-radio-group" class="d-flex flex-column gap-1"></div>
+          <div id="custom-support-inputs" class="d-none mt-2">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small mb-1">Streben kurze Seite</label>
+                <input type="number" id="custom-kurz" class="form-control form-control-sm" min="0" max="5" value="0">
+              </div>
+              <div class="col-6">
+                <label class="form-label small mb-1">Streben lange Seite</label>
+                <input type="number" id="custom-lang" class="form-control form-control-sm" min="0" max="5" value="0">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Markup factor -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body pb-3">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <label class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-0">Aufschlagsfaktor</label>
+          <span class="badge bg-secondary fs-6 px-2" id="markup-display">× 4.2</span>
+        </div>
+        <input type="range" class="form-range" id="markup-slider"
+               min="1.0" max="8.0" step="0.1" value="4.2">
+        <div class="d-flex justify-content-between x-small text-secondary">
+          <span>1.0×</span><span>Kostendeckend → Marktpreis</span><span>8.0×</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-reset" class="btn btn-outline-secondary btn-sm w-100">
+      <i class="bi bi-arrow-counterclockwise me-1"></i>Zurücksetzen
+    </button>
+  </div>
+
+  <!-- ── RIGHT: preview + result ──────────────────────────────────────────── -->
+  <div class="col-lg-7">
+
+    <!-- Canvas SVG preview -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body p-2">
+        <div id="canvas-preview" class="canvas-preview-box d-flex align-items-center justify-content-center">
+          <span class="text-secondary small">Masse eingeben…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="result-panel" class="card shadow-sm border-0">
+      <div class="card-header d-flex align-items-center gap-2 bg-primary text-white">
+        <i class="bi bi-receipt fs-5"></i>
+        <span class="fw-semibold">Kalkulation</span>
+        <span id="result-loading" class="spinner-border spinner-border-sm ms-auto d-none"></span>
+      </div>
+
+      <!-- Placeholder when no data yet -->
+      <div id="result-placeholder" class="card-body text-center text-secondary py-4">
+        <i class="bi bi-arrow-left fs-4 d-block mb-2"></i>
+        Material und Masse wählen
+      </div>
+
+      <!-- Actual result -->
+      <div id="result-content" class="d-none">
+        <div class="table-responsive">
+          <table class="table table-sm table-striped mb-0">
+            <thead class="table-dark small">
+              <tr>
+                <th>Posten</th>
+                <th>Einheitspreis</th>
+                <th>Menge</th>
+                <th class="text-end">CHF</th>
+              </tr>
+            </thead>
+            <tbody id="result-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="text-secondary small">Materialpreis (exkl. Arbeit, MwSt, Verpackung)</span>
+            <strong id="res-material" class="font-monospace"></strong>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3 text-secondary small">
+            <span>Aufschlag</span>
+            <span id="res-markup-label"></span>
+          </div>
+          <div class="selling-price-box rounded-3 p-3 text-center">
+            <div class="text-secondary small mb-1">Verkaufspreis</div>
+            <div class="display-6 fw-bold text-primary" id="res-verkauf"></div>
+            <div class="text-secondary small">CHF</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="result-error" class="alert alert-danger m-3 d-none"></div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/leinwand.js') }}"></script>
+{% endblock %}

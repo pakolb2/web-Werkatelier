@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Preise anpassen — Werkatelier{% endblock %}
+
+{% block content %}
+<h1 class="mb-2"><i class="bi bi-pencil-square me-2 text-warning"></i>Preise dauerhaft ändern</h1>
+
+<div class="alert alert-warning mb-4">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <strong>Achtung:</strong> Änderungen an diesen Preisen beeinflussen <strong>alle Berechnungen im System</strong>.
+  Bitte <strong>nicht zum Ausprobieren</strong> verwenden – nur echte Änderungen eintragen!
+</div>
+
+<div class="alert alert-info small mb-4">
+  <i class="bi bi-info-circle me-1"></i>
+  Hinweis: Diese Änderungen werden im Server-Dateisystem gespeichert. Auf Render.com (Free-Plan) können
+  Änderungen bei einem Server-Neustart verloren gehen.
+</div>
+
+<div id="save-success" class="alert alert-success d-none">
+  <i class="bi bi-check-circle me-2"></i>Preise wurden erfolgreich gespeichert.
+</div>
+<div id="save-error" class="alert alert-danger d-none"></div>
+
+<div class="row g-4">
+  <!-- Materialverkaufspreise -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-basket me-2"></i>Materialverkaufspreise
+      </div>
+      <div class="card-body">
+        {% set mat_labels = {
+          "baumwolle_qm":      ("Baumwolle", "CHF/m²"),
+          "leinen_qm":         ("Leinen", "CHF/m²"),
+          "classic_single_m":  ("Classic Single Rahmen", "CHF/m"),
+          "classic_double_m":  ("Classic Double Rahmen", "CHF/m"),
+          "museo_m":           ("Museo Rahmen", "CHF/m"),
+          "support_m":         ("Support / Zwischenstück", "CHF/m"),
+          "binder_l":          ("Binder (Guardi)", "CHF/L"),
+          "farbe_l":           ("Farbe (Guardi)", "CHF/L"),
+        } %}
+        {% for key, value in material_prices.items() %}
+        {% set label, unit = mat_labels.get(key, (key, "")) %}
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">{{ label }}</label>
+          <div class="input-group input-group-sm">
+            <input type="number" class="form-control price-input" step="0.01" min="0"
+                   id="mat_{{ key }}" name="mat_{{ key }}" value="{{ value }}"
+                   data-group="material" data-key="{{ key }}">
+            <span class="input-group-text text-secondary">{{ unit }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Leinwand-Produktionspreise -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-box-seam me-2"></i>Leinwand-Produktionspreise
+      </div>
+      <div class="card-body">
+        {% set prod_labels = {
+          "arles_4x10m2_roll":    ("Baumwolle Arles (4m×10m Rolle)", "CHF"),
+          "leine_2x10m2_roll":    ("Leinen Terane (2m×10m Rolle)", "CHF"),
+          "keilrahmen_classic_1m":("Keilrahmen Classic 45", "CHF/m"),
+          "keilrahmen_museo_1m":  ("Keilrahmen Museo 45", "CHF/m"),
+          "leim_5l":              ("Leim (5L)", "CHF"),
+          "farbe_5l":             ("Farbe (5L)", "CHF"),
+        } %}
+        {% for key, value in canvas_prices.items() %}
+        {% set label, unit = prod_labels.get(key, (key, "")) %}
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">{{ label }}</label>
+          <div class="input-group input-group-sm">
+            <input type="number" class="form-control price-input" step="0.01" min="0"
+                   id="prod_{{ key }}" name="prod_{{ key }}" value="{{ value }}"
+                   data-group="canvas" data-key="{{ key }}">
+            <span class="input-group-text text-secondary">{{ unit }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-4">
+  <button id="btn-save-prices" class="btn btn-warning btn-lg px-5">
+    <i class="bi bi-floppy me-2"></i>Preise dauerhaft speichern
+  </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('btn-save-prices').addEventListener('click', async () => {
+  const material_prices = {};
+  const canvas_prices = {};
+  document.querySelectorAll('.price-input').forEach(el => {
+    if (el.dataset.group === 'material') material_prices[el.dataset.key] = parseFloat(el.value);
+    else canvas_prices[el.dataset.key] = parseFloat(el.value);
+  });
+  const btn = document.getElementById('btn-save-prices');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Speichern...';
+  try {
+    const res = await fetch('/api/update-prices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ material_prices, canvas_prices }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('save-success').classList.remove('d-none');
+      document.getElementById('save-error').classList.add('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      throw new Error(data.error || 'Unbekannter Fehler');
+    }
+  } catch (e) {
+    document.getElementById('save-error').textContent = 'Fehler: ' + e.message;
+    document.getElementById('save-error').classList.remove('d-none');
+    document.getElementById('save-success').classList.add('d-none');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-floppy me-2"></i>Preise dauerhaft speichern';
+  }
+});
+</script>
+{% endblock %}

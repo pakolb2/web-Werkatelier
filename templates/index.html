@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Willkommen — Werkatelier{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mb-4">
+  <div class="col-lg-8 text-center">
+    <h1 class="display-5 fw-bold mb-2">Willkommen im Werkatelier</h1>
+    <p class="lead text-secondary">
+      Ihre zentrale Plattform für Leinwandpreis- und Materialkostenberechnungen
+    </p>
+    <p class="text-secondary">
+      Herzlich Willkommen, liebe MitarbeiterInnen! Diese Webseite hilft Ihnen bei der Berechnung
+      von Leinwandpreisen und Materialkosten. Zusätzlich können Sie hier die Preise nach Bedarf anpassen.
+    </p>
+  </div>
+</div>
+
+<div class="row g-4 justify-content-center">
+  <div class="col-md-4">
+    <a href="{{ url_for('leinwandpreise') }}" class="text-decoration-none">
+      <div class="card h-100 shadow-sm card-hover">
+        <div class="card-body text-center py-4">
+          <div class="feature-icon mb-3">
+            <i class="bi bi-rulers fs-1 text-primary"></i>
+          </div>
+          <h5 class="card-title fw-bold">Leinwandpreis</h5>
+          <p class="card-text text-secondary small">
+            Berechnung von Preisen für Leinwände auf Massanfertigung — Tuch, Rahmen,
+            Zwischenstücke und Leim & Farbe.
+          </p>
+        </div>
+        <div class="card-footer text-center bg-transparent border-0 pb-3">
+          <span class="btn btn-primary btn-sm">Öffnen <i class="bi bi-arrow-right ms-1"></i></span>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a href="{{ url_for('materialpreise') }}" class="text-decoration-none">
+      <div class="card h-100 shadow-sm card-hover">
+        <div class="card-body text-center py-4">
+          <div class="feature-icon mb-3">
+            <i class="bi bi-basket fs-1 text-success"></i>
+          </div>
+          <h5 class="card-title fw-bold">Materialkosten</h5>
+          <p class="card-text text-secondary small">
+            Berechnung von Kosten für einzelne Rohmaterialien — Stoffe, Rahmen,
+            Binder und Farbe.
+          </p>
+        </div>
+        <div class="card-footer text-center bg-transparent border-0 pb-3">
+          <span class="btn btn-success btn-sm">Öffnen <i class="bi bi-arrow-right ms-1"></i></span>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <div class="col-md-4">
+    <a href="{{ url_for('aenderung_preise') }}" class="text-decoration-none">
+      <div class="card h-100 shadow-sm card-hover">
+        <div class="card-body text-center py-4">
+          <div class="feature-icon mb-3">
+            <i class="bi bi-pencil-square fs-1 text-warning"></i>
+          </div>
+          <h5 class="card-title fw-bold">Preis Anpassung</h5>
+          <p class="card-text text-secondary small">
+            Anpassung der Basispreise (Boesner-Preise), auf denen alle
+            Berechnungen basieren.
+          </p>
+        </div>
+        <div class="card-footer text-center bg-transparent border-0 pb-3">
+          <span class="btn btn-warning btn-sm">Öffnen <i class="bi bi-arrow-right ms-1"></i></span>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

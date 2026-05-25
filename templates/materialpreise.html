@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Materialpreise — Werkatelier{% endblock %}
+
+{% block content %}
+<h1 class="mb-4"><i class="bi bi-basket me-2 text-success"></i>Materialpreise</h1>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+
+    <!-- Stoffe -->
+    <div class="accordion mb-3" id="acc-stoffe">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed fw-semibold" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#stoffe-body">
+            <i class="bi bi-grid me-2"></i>Stoffe
+          </button>
+        </h2>
+        <div id="stoffe-body" class="accordion-collapse collapse">
+          <div class="accordion-body">
+
+            <!-- Baumwolle -->
+            <div class="mb-3">
+              <div class="form-check mb-2">
+                <input class="form-check-input item-toggle" type="checkbox" id="chk-baumwolle" data-target="baumwolle-rows">
+                <label class="form-check-label fw-semibold" for="chk-baumwolle">Baumwolle</label>
+                <span class="text-secondary small ms-2">({{ prices.baumwolle_qm }} CHF/m²)</span>
+              </div>
+              <div id="baumwolle-rows" class="d-none ms-4">
+                <div class="fabric-rows" data-fabric="baumwolle" data-key="baumwolle_qm"></div>
+                <button class="btn btn-outline-secondary btn-sm mt-1 add-fabric-row" data-fabric="baumwolle" data-key="baumwolle_qm">
+                  <i class="bi bi-plus me-1"></i>Stück hinzufügen
+                </button>
+              </div>
+            </div>
+
+            <!-- Leinen -->
+            <div class="mb-1">
+              <div class="form-check mb-2">
+                <input class="form-check-input item-toggle" type="checkbox" id="chk-leinen" data-target="leinen-rows">
+                <label class="form-check-label fw-semibold" for="chk-leinen">Leinen</label>
+                <span class="text-secondary small ms-2">({{ prices.leinen_qm }} CHF/m²)</span>
+              </div>
+              <div id="leinen-rows" class="d-none ms-4">
+                <div class="fabric-rows" data-fabric="leinen" data-key="leinen_qm"></div>
+                <button class="btn btn-outline-secondary btn-sm mt-1 add-fabric-row" data-fabric="leinen" data-key="leinen_qm">
+                  <i class="bi bi-plus me-1"></i>Stück hinzufügen
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rahmen -->
+    <div class="accordion mb-3" id="acc-rahmen">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed fw-semibold" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#rahmen-body">
+            <i class="bi bi-border-outer me-2"></i>Rahmen
+          </button>
+        </h2>
+        <div id="rahmen-body" class="accordion-collapse collapse">
+          <div class="accordion-body">
+
+            {% set rahmen_types = [
+              ("chk-classic-single", "classic-single-rows", "Classic Single",  "classic_single_m"),
+              ("chk-classic-double", "classic-double-rows", "Classic Double",  "classic_double_m"),
+              ("chk-museo",          "museo-rows",          "Museo",           "museo_m"),
+              ("chk-support",        "support-rows",        "Support",         "support_m"),
+            ] %}
+            {% for chk_id, target_id, label, price_key in rahmen_types %}
+            <div class="mb-3">
+              <div class="form-check mb-2">
+                <input class="form-check-input item-toggle" type="checkbox" id="{{ chk_id }}" data-target="{{ target_id }}">
+                <label class="form-check-label fw-semibold" for="{{ chk_id }}">{{ label }}</label>
+                <span class="text-secondary small ms-2">({{ prices[price_key] }} CHF/m)</span>
+              </div>
+              <div id="{{ target_id }}" class="d-none ms-4">
+                <div class="frame-rows" data-key="{{ price_key }}"></div>
+                <button class="btn btn-outline-secondary btn-sm mt-1 add-frame-row" data-key="{{ price_key }}" data-label="{{ label }}">
+                  <i class="bi bi-plus me-1"></i>Stück hinzufügen
+                </button>
+              </div>
+            </div>
+            {% endfor %}
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Binder & Farbe -->
+    <div class="accordion mb-4" id="acc-farbe">
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed fw-semibold" type="button"
+                  data-bs-toggle="collapse" data-bs-target="#farbe-body">
+            <i class="bi bi-droplet me-2"></i>Binder &amp; Farbe
+          </button>
+        </h2>
+        <div id="farbe-body" class="accordion-collapse collapse">
+          <div class="accordion-body">
+
+            <div class="mb-3">
+              <div class="form-check mb-2">
+                <input class="form-check-input item-toggle" type="checkbox" id="chk-binder" data-target="binder-section">
+                <label class="form-check-label fw-semibold" for="chk-binder">Binder (Guardi)</label>
+                <span class="text-secondary small ms-2">({{ prices.binder_l }} CHF/L)</span>
+              </div>
+              <div id="binder-section" class="d-none ms-4">
+                <label class="form-label small text-secondary">Menge [dl]</label>
+                <input type="number" class="form-control form-control-sm w-auto" id="binder-dl" min="0" value="0"
+                       data-key="binder_l" data-label="Binder (Guardi)" data-category="Farbe &amp; Binder">
+              </div>
+            </div>
+
+            <div class="mb-1">
+              <div class="form-check mb-2">
+                <input class="form-check-input item-toggle" type="checkbox" id="chk-farbe" data-target="farbe-section">
+                <label class="form-check-label fw-semibold" for="chk-farbe">Farbe (Guardi)</label>
+                <span class="text-secondary small ms-2">({{ prices.farbe_l }} CHF/L)</span>
+              </div>
+              <div id="farbe-section" class="d-none ms-4">
+                <label class="form-label small text-secondary">Menge [dl]</label>
+                <input type="number" class="form-control form-control-sm w-auto" id="farbe-dl" min="0" value="0"
+                       data-key="farbe_l" data-label="Farbe (Guardi)" data-category="Farbe &amp; Binder">
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-calc-material" class="btn btn-success w-100">
+      <i class="bi bi-calculator me-2"></i>Berechnen
+    </button>
+  </div>
+
+  <!-- Result -->
+  <div class="col-lg-5">
+    <div id="mat-result-panel" class="d-none">
+      <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Rechnung</h5>
+        </div>
+        <div id="mat-result-body" class="card-body p-0"></div>
+        <div class="card-footer">
+          <h5 class="mb-0">Gesamtpreis: <strong id="mat-total"></strong></h5>
+        </div>
+      </div>
+    </div>
+    <div id="mat-result-error" class="alert alert-danger d-none"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/material.js') }}"></script>
+{% endblock %}

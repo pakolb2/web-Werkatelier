@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Preisanalyse — Werkatelier{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1 class="mb-4"><i class="bi bi-graph-up me-2 text-info"></i>Preisanalyse</h1>
+
+<div class="row g-4">
+  <!-- Sliders sidebar -->
+  <div class="col-lg-3">
+    <div class="card shadow-sm sticky-top" style="top:80px">
+      <div class="card-header fw-semibold"><i class="bi bi-sliders me-2"></i>Parameter</div>
+      <div class="card-body small">
+
+        <p class="text-secondary mb-2 fw-semibold">Baumwolle (klein)</p>
+        {% set sliders_b = [
+          ("a_baumwolle",   "a",            0.0,  1.0,  0.01, 0.18),
+          ("b_baumwolle",   "b",            0.0,  4.0,  0.01, 1.51),
+          ("y0_baumwolle",  "y-Achse",    -50.0, 50.0,  0.1,  0.0),
+        ] %}
+        {% for id, label, mn, mx, step, val in sliders_b %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between">
+            <label class="form-label mb-0">{{ label }}</label>
+            <span id="{{ id }}-val" class="text-secondary">{{ val }}</span>
+          </div>
+          <input type="range" class="form-range chart-param" id="{{ id }}"
+                 min="{{ mn }}" max="{{ mx }}" step="{{ step }}" value="{{ val }}">
+        </div>
+        {% endfor %}
+
+        <hr class="my-2">
+        <p class="text-secondary mb-2 fw-semibold">Baumwolle (gross)</p>
+        {% set sliders_bo = [
+          ("a_baumwolle_o",  "a",         0.0, 100.0,  0.01,  3.47),
+          ("b_baumwolle_o",  "b",         0.0,   1.0,  0.01,  0.66),
+          ("y0_baumwolle_o", "y-Achse", -50.0,  50.0,  0.1,  26.04),
+        ] %}
+        {% for id, label, mn, mx, step, val in sliders_bo %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between">
+            <label class="form-label mb-0">{{ label }}</label>
+            <span id="{{ id }}-val" class="text-secondary">{{ val }}</span>
+          </div>
+          <input type="range" class="form-range chart-param" id="{{ id }}"
+                 min="{{ mn }}" max="{{ mx }}" step="{{ step }}" value="{{ val }}">
+        </div>
+        {% endfor %}
+
+        <hr class="my-2">
+        <p class="text-secondary mb-2 fw-semibold">Leinen</p>
+        {% set sliders_l = [
+          ("a_leinen",   "a",         0.0,  20.0,  0.01,  6.39),
+          ("b_leinen",   "b",         0.0,   2.0,  0.01,  0.9),
+          ("y0_leinen",  "y-Achse", -50.0, 100.0,  0.1,  34.2),
+        ] %}
+        {% for id, label, mn, mx, step, val in sliders_l %}
+        <div class="mb-2">
+          <div class="d-flex justify-content-between">
+            <label class="form-label mb-0">{{ label }}</label>
+            <span id="{{ id }}-val" class="text-secondary">{{ val }}</span>
+          </div>
+          <input type="range" class="form-range chart-param" id="{{ id }}"
+                 min="{{ mn }}" max="{{ mx }}" step="{{ step }}" value="{{ val }}">
+        </div>
+        {% endfor %}
+
+        <button id="btn-reload-chart" class="btn btn-info btn-sm w-100 mt-2">
+          <i class="bi bi-arrow-clockwise me-1"></i>Aktualisieren
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="col-lg-9">
+    <div id="chart-loading" class="text-center py-5 text-secondary">
+      <div class="spinner-border me-2" role="status"></div>Daten werden geladen…
+    </div>
+    <div id="chart-error" class="alert alert-danger d-none"></div>
+
+    <div id="charts-container" class="d-none">
+      <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold">Baumwolle — Verkaufspreis nach Fläche</div>
+        <div class="card-body">
+          <canvas id="chart-baumwolle" height="300"></canvas>
+        </div>
+      </div>
+      <div class="card shadow-sm">
+        <div class="card-header fw-semibold">Leinen — Verkaufspreis nach Fläche</div>
+        <div class="card-body">
+          <canvas id="chart-leinen" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const COLORS = ['#0d6efd','#198754','#dc3545','#fd7e14','#6f42c1','#20c997'];
+const SUPPORT_LABELS = {
+  'Kein Zwischenstück': 'Kein Zwischenstück',
+  'Eins': 'Eins',
+  'Zwei (Kreuz)': 'Zwei (Kreuz)',
+  'Zwei (Parallel)': 'Zwei (Parallel)',
+  'Drei (Doppelkreuz)': 'Drei (Doppelkreuz)',
+  'Vier (Viererkreuz)': 'Vier (Viererkreuz)',
+};
+
+let chartB = null, chartL = null;
+
+function getParams() {
+  const p = {};
+  document.querySelectorAll('.chart-param').forEach(el => {
+    p[el.id] = el.value;
+  });
+  return new URLSearchParams(p).toString();
+}
+
+async function loadCharts() {
+  document.getElementById('chart-loading').classList.remove('d-none');
+  document.getElementById('charts-container').classList.add('d-none');
+  document.getElementById('chart-error').classList.add('d-none');
+
+  try {
+    const res = await fetch('/api/preisanpassung-data?' + getParams());
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    buildChart('chart-baumwolle', chartB, data.curves_baumwolle, data.scatter_baumwolle,
+               'Fläche (m²)', 'CHF', (c) => { chartB = c; });
+    buildChart('chart-leinen', chartL, data.curves_leinen, data.scatter_leinen,
+               'Fläche (m²)', 'CHF', (c) => { chartL = c; });
+
+    document.getElementById('chart-loading').classList.add('d-none');
+    document.getElementById('charts-container').classList.remove('d-none');
+  } catch(e) {
+    document.getElementById('chart-loading').classList.add('d-none');
+    document.getElementById('chart-error').textContent = 'Fehler: ' + e.message;
+    document.getElementById('chart-error').classList.remove('d-none');
+  }
+}
+
+function buildChart(canvasId, existing, curves, scatter, xLabel, yLabel, setRef) {
+  if (existing) existing.destroy();
+
+  const datasets = curves.map((c, i) => ({
+    label: c.label,
+    data: c.x.map((x, j) => ({ x, y: c.y[j] })),
+    borderColor: COLORS[i % COLORS.length],
+    backgroundColor: 'transparent',
+    type: 'line',
+    tension: 0.3,
+    pointRadius: 0,
+    borderWidth: 2,
+  }));
+
+  if (scatter.length) {
+    datasets.push({
+      label: 'CSV Datenpunkte',
+      data: scatter,
+      type: 'scatter',
+      pointRadius: 5,
+      backgroundColor: '#333',
+    });
+  }
+
+  const chart = new Chart(document.getElementById(canvasId), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom' } },
+      scales: {
+        x: { title: { display: true, text: xLabel } },
+        y: { title: { display: true, text: yLabel } },
+      },
+    },
+  });
+  setRef(chart);
+}
+
+// Sync slider value display
+document.querySelectorAll('.chart-param').forEach(el => {
+  el.addEventListener('input', () => {
+    document.getElementById(el.id + '-val').textContent = el.value;
+  });
+});
+
+document.getElementById('btn-reload-chart').addEventListener('click', loadCharts);
+
+loadCharts();
+</script>
+{% endblock %}
