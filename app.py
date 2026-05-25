@@ -67,11 +67,6 @@ def preisliste():
     return render_template("preisliste.html", rows=rows, markup=markup)
 
 
-@app.route("/preisanpassung")
-def preisanpassung():
-    return render_template("preisanpassung.html")
-
-
 # ── API routes ────────────────────────────────────────────────────────────────
 
 @app.route("/api/calculate/canvas", methods=["POST"])
@@ -135,20 +130,6 @@ def api_update_prices():
                 "PRICES_CANVAS":   json_can,
             },
         })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
-
-
-@app.route("/api/preisanpassung-data")
-def api_preisanpassung_data():
-    params = {k: float(request.args[k]) for k in request.args if k in {
-        "a_baumwolle", "b_baumwolle", "y0_baumwolle",
-        "a_baumwolle_o", "b_baumwolle_o", "y0_baumwolle_o",
-        "a_leinen", "b_leinen", "y0_leinen",
-    }}
-    try:
-        data = calculator.get_preisanpassung_data(**params)
-        return jsonify({"ok": True, **data})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
