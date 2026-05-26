@@ -721,7 +721,7 @@ async function loadChartData() {
   if (!lastResult) return;
   $('chart-loading').classList.remove('d-none');
   try {
-    const res  = await fetch(`/api/chart-data?fabric=${encodeURIComponent(state.material)}&wood=${state.wood}&markup=${state.markup}`);
+    const res  = await fetch(`/api/chart-data?fabric=${encodeURIComponent(state.material)}&wood=${state.wood}`);
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
 

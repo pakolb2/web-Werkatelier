@@ -1,5 +1,6 @@
 import csv
 import math
+import os
 from core.prices import load_all
 
 # Piecewise linear segments: (area_cm2_low, area_cm2_high, m, b)
@@ -242,3 +243,43 @@ def generate_preisliste(markup_factor: float = 4.2) -> list[dict]:
             "prices":      prices,
         })
     return rows
+
+
+# ── Reference-price chart data (from the supplier CSV tables) ─────────────────
+
+_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+
+_CSV_MAP = {
+    # wood_type → (filename, area_col, baumwolle_col, leinen_col)
+    # area column holds cm² values (divide by 10 000 → m²)
+    "classic_double": ("Preisliste_DR_Classic.csv",    "Fläche_m2",       "Baumwolle_preis", "Leinen_preis"),
+    "classic_single": ("Preisliste_SR_Classic.csv",    "size",             "price_baumwolle", "price_Leinen"),
+    "museo":          ("Preisliste_Museo_Classic.csv", "size",             "price_baumwolle", "price_Leinen"),
+}
+
+def get_csv_chart_data(wood_type: str, fabric: str) -> list[dict]:
+    """
+    Return sorted list of {area_m2, price} dicts read directly from the
+    supplier price-list CSVs (the raw reference prices, not computed markup).
+    """
+    entry = _CSV_MAP.get(wood_type, _CSV_MAP["classic_double"])
+    filename, area_col, baumwolle_col, leinen_col = entry
+    price_col = baumwolle_col if fabric == "Baumwolle" else leinen_col
+
+    csv_path = os.path.join(_DATA_DIR, filename)
+    points: list[dict] = []
+
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                area_m2   = float(row[area_col]) / 10_000
+                price_str = row.get(price_col, "").strip()
+                if not price_str:
+                    continue
+                points.append({"area_m2": round(area_m2, 5), "price": float(price_str)})
+            except (ValueError, KeyError):
+                continue
+
+    points.sort(key=lambda p: p["area_m2"])
+    return points

@@ -170,18 +170,8 @@ def api_update_business_info():
 def api_chart_data():
     fabric = request.args.get("fabric", "Baumwolle")
     wood   = request.args.get("wood",   "classic_double")
-    markup = float(request.args.get("markup", 4.2))
     try:
-        rows = calculator.generate_preisliste(markup)
-        points = [
-            {
-                "label":   row["label"],
-                "area_m2": row["area_m2"],
-                "price":   row["prices"][fabric][wood],
-            }
-            for row in rows
-            if fabric in row["prices"] and wood in row["prices"][fabric]
-        ]
+        points = calculator.get_csv_chart_data(wood, fabric)
         return jsonify({"ok": True, "points": points})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
