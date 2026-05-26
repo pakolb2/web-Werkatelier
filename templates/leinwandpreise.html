@@ -196,12 +196,29 @@
             <button id="btn-compare" class="btn btn-outline-primary btn-sm d-none">
               <i class="bi bi-bar-chart me-1"></i>Rahmen vergleichen
             </button>
+            <button id="btn-chart" class="btn btn-outline-info btn-sm d-none">
+              <i class="bi bi-graph-up me-1"></i>Preiskurve
+            </button>
             <button id="btn-copy" class="btn btn-outline-secondary btn-sm d-none">
               <i class="bi bi-clipboard me-1"></i>Kopieren
             </button>
             <button id="btn-print-single" class="btn btn-outline-secondary btn-sm d-none">
-              <i class="bi bi-printer me-1"></i>Drucken
+              <i class="bi bi-file-earmark-pdf me-1"></i>PDF erstellen
             </button>
+          </div>
+        </div>
+
+        <!-- Price curve panel -->
+        <div id="chart-panel" class="d-none border-top">
+          <div class="px-3 pt-3 pb-2">
+            <h6 class="fw-semibold mb-1">
+              <i class="bi bi-graph-up me-2 text-info"></i>Preiskurve — Preis vs. Fläche
+            </h6>
+            <p class="text-secondary x-small mb-2">Standardformate im Vergleich — roter Punkt: aktuelle Konfiguration</p>
+            <div id="chart-loading" class="text-center text-secondary small py-2 d-none">
+              <span class="spinner-border spinner-border-sm me-1"></span>Wird geladen…
+            </div>
+            <canvas id="price-chart" style="max-height:260px"></canvas>
           </div>
         </div>
 
@@ -284,5 +301,9 @@
 {% endblock %}
 
 {% block scripts %}
+<script>const BUSINESS_INFO = {{ business_info | tojson }};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/leinwand.js') }}"></script>
 {% endblock %}

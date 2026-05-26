@@ -34,15 +34,21 @@
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'aenderung_preise' %}active{% endif %}"
-             href="{{ url_for('aenderung_preise') }}">
-            <i class="bi bi-pencil-square me-1"></i>Preise anpassen
-          </a>
-        </li>
-        <li class="nav-item">
           <a class="nav-link {% if request.endpoint == 'preisliste' %}active{% endif %}"
              href="{{ url_for('preisliste') }}">
             <i class="bi bi-table me-1"></i>Preisliste
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'statistik' %}active{% endif %}"
+             href="{{ url_for('statistik') }}">
+            <i class="bi bi-bar-chart-line me-1"></i>Statistik
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.endpoint == 'einstellungen' %}active{% endif %}"
+             href="{{ url_for('einstellungen') }}">
+            <i class="bi bi-gear me-1"></i>Einstellungen
           </a>
         </li>
       </ul>

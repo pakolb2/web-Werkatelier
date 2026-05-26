@@ -298,14 +298,18 @@ function renderResult(data) {
   $('mwst-details').classList.add('d-none');
 
   // Show action buttons
-  ['btn-add-order','btn-compare','btn-copy','btn-print-single'].forEach(id =>
+  ['btn-add-order','btn-compare','btn-chart','btn-copy','btn-print-single'].forEach(id =>
     $(id).classList.remove('d-none'));
 
   $('result-content').classList.remove('d-none');
 
-  // History
+  // History & stats
   saveToHistory();
+  logCalc();
   renderHistory();
+
+  // Refresh chart if already visible
+  if ($('chart-panel') && !$('chart-panel').classList.contains('d-none')) loadChartData();
 }
 
 // ── MwSt ─────────────────────────────────────────────────────────────────────
@@ -341,8 +345,8 @@ $('btn-copy').addEventListener('click', () => {
 
 // ── Print single invoice ──────────────────────────────────────────────────────
 
-$('btn-print-single').addEventListener('click', () => window.print());
-$('btn-print-order') && $('btn-print-order').addEventListener('click', () => window.print());
+$('btn-print-single').addEventListener('click', () => generateInvoicePDF('single'));
+$('btn-print-order') && $('btn-print-order').addEventListener('click', () => generateInvoicePDF('order'));
 
 // ── Frame comparison ──────────────────────────────────────────────────────────
 
@@ -477,7 +481,7 @@ function saveToHistory() {
   };
   let hist = JSON.parse(localStorage.getItem('wa_history') || '[]');
   hist.unshift(entry);
-  if (hist.length > 10) hist = hist.slice(0, 10);
+  if (hist.length > 50) hist = hist.slice(0, 50);
   localStorage.setItem('wa_history', JSON.stringify(hist));
 }
 
@@ -537,10 +541,254 @@ $('btn-reset').addEventListener('click', () => {
   $('result-error').classList.add('d-none');
   $('support-auto-badge').textContent = '— cm eingeben';
   $('compare-panel').classList.add('d-none');
+  if ($('chart-panel')) $('chart-panel').classList.add('d-none');
+  if (priceChart) { priceChart.destroy(); priceChart = null; }
   Object.assign(state, { material: null, length: 0, width: 0, wood: 'classic_double',
     anzLang: 0, anzKurz: 0, supportLabel: 'Kein Zwischenstück', markup: 4.2, manualOverride: false });
   _lastSupportLen = -1;
   lastResult = null;
+});
+
+// ── Calc log (for Statistik page) ────────────────────────────────────────────
+
+function logCalc() {
+  if (!lastResult) return;
+  const entry = {
+    ts:           Date.now(),
+    size:         `${state.length}×${state.width}`,
+    area_m2:      Math.round(state.length * state.width) / 10000,
+    fabric:       state.material,
+    wood:         state.wood,
+    markup:       state.markup,
+    material_cost: parseFloat(lastResult.total_material),
+    verkaufspreis: parseFloat(lastResult.verkaufspreis),
+  };
+  let log = JSON.parse(localStorage.getItem('wa_calc_log') || '[]');
+  log.unshift(entry);
+  if (log.length > 200) log = log.slice(0, 200);
+  localStorage.setItem('wa_calc_log', JSON.stringify(log));
+}
+
+// ── PDF invoice (jsPDF) ───────────────────────────────────────────────────────
+
+function generateInvoicePDF(type) {
+  if (!window.jspdf) { alert('PDF-Bibliothek noch nicht geladen — bitte kurz warten.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  const W = 210, ML = 15, MR = 15;
+  const biz = window.BUSINESS_INFO || {};
+  const today = new Date().toLocaleDateString('de-CH');
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(30);
+  doc.text(biz.name || 'Werkatelier', ML, 22);
+
+  let addrY = 27;
+  if (biz.subtitle) {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
+    doc.text(biz.subtitle, ML, addrY); addrY += 5;
+  }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+  if (biz.address) { doc.text(biz.address, ML, addrY); addrY += 4.5; }
+  if (biz.city)    { doc.text(biz.city,    ML, addrY); addrY += 4.5; }
+  const contact = [biz.phone, biz.email, biz.website].filter(Boolean).join('   ·   ');
+  if (contact) { doc.text(contact, ML, addrY); }
+
+  // Document type (top-right)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(60);
+  doc.text('OFFERTE', W - MR, 22, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
+  doc.text(`Datum: ${today}`, W - MR, 29, { align: 'right' });
+
+  // Separator
+  doc.setDrawColor(200); doc.setLineWidth(0.4);
+  doc.line(ML, 50, W - MR, 50);
+
+  let Y = 58;
+
+  if (type === 'single' && lastResult) {
+    // Title
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
+    doc.text(`Leinwand ${state.length}×${state.width} cm`, ML, Y); Y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
+    doc.text(`${state.material}  ·  ${WOOD_LABELS[state.wood]}  ·  ${state.supportLabel}`, ML, Y); Y += 8;
+
+    // Calc table
+    const tableBody = lastResult.rows.map(r => [r.produkt, r.stueckpreis, r.anzahl, r.betrag + ' CHF']);
+    doc.autoTable({
+      startY: Y,
+      head: [['Posten', 'Einheitspreis', 'Menge', 'CHF']],
+      body: tableBody,
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [35, 35, 35], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 249, 250] },
+      columnStyles: { 3: { halign: 'right', fontStyle: 'bold' } },
+      margin: { left: ML, right: MR },
+    });
+    Y = doc.lastAutoTable.finalY + 6;
+
+    // Summary
+    const cR = W - MR, cL = cR - 68;
+    doc.setDrawColor(210); doc.line(cL - 4, Y, cR, Y); Y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120);
+    doc.text('Materialpreis', cL, Y);
+    doc.text(`CHF ${lastResult.total_material}`, cR, Y, { align: 'right' }); Y += 5.5;
+    doc.text(`Aufschlag ×${state.markup.toFixed(1)}`, cL, Y); Y += 5.5;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20);
+    doc.text('Verkaufspreis', cL, Y);
+    doc.text(`CHF ${lastResult.verkaufspreis}`, cR, Y, { align: 'right' }); Y += 7;
+
+    if ($('chk-mwst').checked) {
+      const v = parseFloat(lastResult.verkaufspreis);
+      const mwst   = Math.round(v * 0.081 * 20) / 20;
+      const brutto = Math.round((v + mwst)  * 20) / 20;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120);
+      doc.text('MwSt 8.1%', cL, Y);
+      doc.text(`CHF ${mwst.toFixed(2)}`, cR, Y, { align: 'right' }); Y += 5.5;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20);
+      doc.text('Total (inkl. MwSt)', cL, Y);
+      doc.text(`CHF ${brutto.toFixed(2)}`, cR, Y, { align: 'right' });
+    }
+
+  } else if (type === 'order' && orderItems.length > 0) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
+    doc.text('Leinwandbestellung', ML, Y); Y += 8;
+
+    const tableBody = orderItems.map(item => {
+      const net   = item.verkauf;
+      const mwst  = item.mwst ? Math.round(net * 0.081 * 20) / 20 : 0;
+      const gross = Math.round((net + mwst) * 20) / 20;
+      return [`${item.size} cm`, item.fabric, item.wood, item.support,
+              `CHF ${gross.toFixed(2)}${item.mwst ? ' *' : ''}`];
+    });
+    doc.autoTable({
+      startY: Y,
+      head: [['Format', 'Material', 'Rahmen', 'Zwischenstück', 'CHF']],
+      body: tableBody,
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      headStyles: { fillColor: [25, 135, 84], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 249, 250] },
+      columnStyles: { 4: { halign: 'right', fontStyle: 'bold' } },
+      margin: { left: ML, right: MR },
+    });
+    Y = doc.lastAutoTable.finalY + 6;
+
+    const total = orderItems.reduce((s, item) => {
+      const mwst = item.mwst ? Math.round(item.verkauf * 0.081 * 20) / 20 : 0;
+      return s + Math.round((item.verkauf + mwst) * 20) / 20;
+    }, 0);
+
+    const cR = W - MR, cL = cR - 68;
+    doc.setDrawColor(210); doc.line(cL - 4, Y, cR, Y); Y += 6;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20);
+    doc.text('Total', cL, Y);
+    doc.text(`CHF ${(Math.round(total * 20) / 20).toFixed(2)}`, cR, Y, { align: 'right' }); Y += 6;
+    if (orderItems.some(i => i.mwst)) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
+      doc.text('* inkl. MwSt 8.1%', cL, Y);
+    }
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  const fY = 282;
+  doc.setDrawColor(200); doc.line(ML, fY - 7, W - MR, fY - 7);
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5); doc.setTextColor(130);
+  let fLine = fY - 1;
+  if (biz.invoice_note) { doc.text(biz.invoice_note, ML, fLine); fLine += 5; }
+  const footParts = [];
+  if (biz.vat_nr)       footParts.push(`MwSt-Nr: ${biz.vat_nr}`);
+  if (biz.bank_details) footParts.push(biz.bank_details);
+  if (footParts.length) {
+    doc.setFont('helvetica', 'normal');
+    doc.text(footParts.join('   ·   '), ML, fLine);
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  const fname = type === 'order'
+    ? `Bestellung_${today.replace(/\./g, '-')}.pdf`
+    : `Offerte_${state.length}x${state.width}_${state.material}_${today.replace(/\./g, '-')}.pdf`;
+  doc.save(fname);
+}
+
+// ── Price curve chart ─────────────────────────────────────────────────────────
+
+let priceChart = null;
+
+async function loadChartData() {
+  if (!lastResult) return;
+  $('chart-loading').classList.remove('d-none');
+  try {
+    const res  = await fetch(`/api/chart-data?fabric=${encodeURIComponent(state.material)}&wood=${state.wood}&markup=${state.markup}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    const pts    = data.points;
+    const curX   = Math.round(state.length * state.width) / 10000;
+    const curY   = parseFloat(lastResult.verkaufspreis);
+
+    const ctx = $('price-chart').getContext('2d');
+    if (priceChart) priceChart.destroy();
+
+    priceChart = new Chart(ctx, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: `Standardformate (${state.material}, ${WOOD_LABELS[state.wood]})`,
+            data: pts.map(p => ({ x: p.area_m2, y: p.price, label: p.label })),
+            backgroundColor: 'rgba(13,110,253,0.55)',
+            borderColor:     'rgba(13,110,253,0.85)',
+            pointRadius: 5, pointHoverRadius: 7,
+            showLine: true, borderWidth: 1.5, tension: 0.25,
+          },
+          {
+            label: `Aktuelle Leinwand ${state.length}×${state.width} cm`,
+            data: [{ x: curX, y: curY, label: `${state.length}×${state.width} cm` }],
+            backgroundColor: 'rgba(220,53,69,0.9)',
+            borderColor:     'rgba(220,53,69,1)',
+            pointRadius: 10, pointHoverRadius: 12,
+            pointStyle: 'circle',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14 } },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const d = ctx.raw;
+                return `${d.label || ''}: CHF ${d.y.toFixed(2)} (${d.x.toFixed(3)} m²)`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { title: { display: true, text: 'Fläche (m²)', font: { size: 11 } }, ticks: { font: { size: 10 } } },
+          y: { title: { display: true, text: 'Verkaufspreis (CHF)', font: { size: 11 } }, ticks: { font: { size: 10 } } },
+        },
+      },
+    });
+  } catch (e) {
+    $('price-chart').insertAdjacentHTML('beforebegin',
+      `<div class="text-danger small py-1">Fehler: ${e.message}</div>`);
+  } finally {
+    $('chart-loading').classList.add('d-none');
+  }
+}
+
+$('btn-chart') && $('btn-chart').addEventListener('click', () => {
+  const panel = $('chart-panel');
+  if (!panel.classList.contains('d-none')) {
+    panel.classList.add('d-none');
+    return;
+  }
+  panel.classList.remove('d-none');
+  loadChartData();
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

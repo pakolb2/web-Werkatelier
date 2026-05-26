@@ -52,7 +52,7 @@ def load_all():
       3. JSON files committed to the repo
       4. Hard-coded defaults
     """
-    if _cache:
+    if "material" in _cache and "canvas" in _cache:
         return _cache["material"], _cache["canvas"]
 
     env_mat = os.environ.get("PRICES_MATERIAL")
@@ -96,3 +96,50 @@ def save_all(material_prices: dict, canvas_prices: dict) -> tuple[bool, str, str
         print(f"Warning: could not write price files: {e}")
 
     return saved_to_disk, json_mat, json_can
+
+
+# ── Business / invoice info ───────────────────────────────────────────────────
+
+_business_info_path = os.path.join(_dir, "business_info.json")
+
+default_business_info: dict = {
+    "name":         "Werkatelier",
+    "subtitle":     "",
+    "address":      "",
+    "city":         "",
+    "phone":        "",
+    "email":        "",
+    "website":      "",
+    "vat_nr":       "",
+    "bank_details": "",
+    "invoice_note": "Herzlichen Dank für Ihren Auftrag.",
+}
+
+
+def load_business_info() -> dict:
+    if "business" in _cache:
+        return _cache["business"]
+    env_biz = os.environ.get("BUSINESS_INFO")
+    if env_biz:
+        try:
+            info = json.loads(env_biz)
+            _cache["business"] = info
+            return info
+        except Exception as e:
+            print(f"Warning: could not parse BUSINESS_INFO env var: {e}")
+    info = _load_file(_business_info_path, default_business_info)
+    _cache["business"] = info
+    return info
+
+
+def save_business_info(info: dict) -> tuple[bool, str]:
+    _cache["business"] = info
+    json_str = json.dumps(info, ensure_ascii=False)
+    saved = False
+    try:
+        with open(_business_info_path, "w", encoding="utf-8") as f:
+            json.dump(info, f, indent=4, ensure_ascii=False)
+        saved = True
+    except Exception as e:
+        print(f"Warning: could not write business info: {e}")
+    return saved, json_str

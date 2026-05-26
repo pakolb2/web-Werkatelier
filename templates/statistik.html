@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% block title %}Statistik — Werkatelier{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+  <h1 class="mb-0"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Statistik</h1>
+  <span class="badge bg-secondary-subtle text-secondary border" id="stat-badge">Berechne…</span>
+  <button id="btn-clear-stats" class="btn btn-outline-danger btn-sm ms-auto">
+    <i class="bi bi-trash me-1"></i>Verlauf löschen
+  </button>
+</div>
+
+<!-- Empty state -->
+<div id="stats-empty" class="text-center py-5 text-secondary d-none">
+  <i class="bi bi-calculator fs-1 d-block mb-3 opacity-50"></i>
+  <p class="mb-1 fw-semibold">Noch keine Berechnungen vorhanden</p>
+  <p class="small">Öffne <a href="/leinwandpreise">Leinwandpreis</a> und berechne einige Leinwände.</p>
+</div>
+
+<!-- Stats content -->
+<div id="stats-content" class="d-none">
+
+  <!-- Summary cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm text-center p-3">
+        <div class="text-secondary small mb-1">Berechnungen</div>
+        <div class="fs-3 fw-bold text-primary font-monospace" id="stat-total">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm text-center p-3">
+        <div class="text-secondary small mb-1">Ø Verkaufspreis</div>
+        <div class="fs-3 fw-bold text-success font-monospace" id="stat-avg-price">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm text-center p-3">
+        <div class="text-secondary small mb-1">Beliebtestes Format</div>
+        <div class="fs-5 fw-bold" id="stat-top-size">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm text-center p-3">
+        <div class="text-secondary small mb-1">Häufigstes Material</div>
+        <div class="fs-5 fw-bold" id="stat-top-fabric">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row 1 -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header small fw-semibold">
+          <i class="bi bi-circle-half me-1 text-primary"></i>Material
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height:220px">
+          <canvas id="chart-material"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header small fw-semibold">
+          <i class="bi bi-circle-half me-1 text-warning"></i>Rahmentyp
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height:220px">
+          <canvas id="chart-wood"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header small fw-semibold">
+          <i class="bi bi-currency-exchange me-1 text-success"></i>Aufschlagsfaktor
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center" style="min-height:220px">
+          <canvas id="chart-markup"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts row 2 -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header small fw-semibold">
+          <i class="bi bi-rulers me-1 text-info"></i>Beliebteste Formate (Top 8)
+        </div>
+        <div class="card-body">
+          <canvas id="chart-sizes" style="max-height:220px"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header small fw-semibold">
+          <i class="bi bi-cash-stack me-1 text-success"></i>Preisverteilung
+        </div>
+        <div class="card-body">
+          <canvas id="chart-prices" style="max-height:220px"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent calculations table -->
+  <div class="card shadow-sm">
+    <div class="card-header small fw-semibold">
+      <i class="bi bi-clock-history me-1"></i>Letzte Berechnungen
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead class="table-dark small">
+          <tr>
+            <th>Zeit</th><th>Format</th><th>Material</th>
+            <th>Rahmen</th><th>Aufschlag</th><th class="text-end">CHF</th>
+          </tr>
+        </thead>
+        <tbody id="stats-recent-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+'use strict';
+
+const LOG_KEY  = 'wa_calc_log';
+const WOOD_LBL = {
+  classic_single: 'Classic Einfach',
+  classic_double: 'Classic Doppel',
+  museo:          'Museo 45',
+};
+
+function loadLog() {
+  return JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+}
+
+function renderDoughnut(id, labels, data, colors) {
+  new Chart(document.getElementById(id), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors, borderWidth: 2 }],
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 14 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+              return ` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw / total * 100)}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+function renderBar(id, labels, data, color, xLabel) {
+  new Chart(document.getElementById(id), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: color + 'bb',
+        borderColor: color,
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      indexAxis: id === 'chart-sizes' ? 'y' : 'x',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { font: { size: 10 }, stepSize: 1 } },
+        y: { ticks: { font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+function renderStats() {
+  const log = loadLog();
+
+  if (log.length === 0) {
+    document.getElementById('stats-empty').classList.remove('d-none');
+    document.getElementById('stats-content').classList.add('d-none');
+    document.getElementById('stat-badge').textContent = '0 Einträge';
+    return;
+  }
+
+  document.getElementById('stats-empty').classList.add('d-none');
+  document.getElementById('stats-content').classList.remove('d-none');
+  document.getElementById('stat-badge').textContent = `${log.length} Einträge`;
+
+  // ── Summary cards ─────────────────────────────────────────────────────────
+  const avgPrice = log.reduce((s, e) => s + e.verkaufspreis, 0) / log.length;
+  const sizeCount = {}, fabCount = {}, woodCount = {};
+  log.forEach(e => {
+    sizeCount[e.size] = (sizeCount[e.size] || 0) + 1;
+    fabCount[e.fabric] = (fabCount[e.fabric] || 0) + 1;
+    woodCount[e.wood]  = (woodCount[e.wood]  || 0) + 1;
+  });
+  const topSize   = Object.entries(sizeCount).sort((a, b) => b[1] - a[1])[0];
+  const topFabric = Object.entries(fabCount) .sort((a, b) => b[1] - a[1])[0];
+
+  document.getElementById('stat-total')     .textContent = log.length;
+  document.getElementById('stat-avg-price') .textContent = `CHF ${avgPrice.toFixed(0)}`;
+  document.getElementById('stat-top-size')  .textContent = topSize   ? topSize[0]   + ' cm' : '—';
+  document.getElementById('stat-top-fabric').textContent = topFabric ? topFabric[0]         : '—';
+
+  // ── Doughnut: Material ────────────────────────────────────────────────────
+  renderDoughnut(
+    'chart-material',
+    Object.keys(fabCount),
+    Object.values(fabCount),
+    ['#0d6efd', '#ffc107', '#dc3545'],
+  );
+
+  // ── Doughnut: Wood type ───────────────────────────────────────────────────
+  const woodKeys = Object.keys(woodCount);
+  renderDoughnut(
+    'chart-wood',
+    woodKeys.map(k => WOOD_LBL[k] || k),
+    woodKeys.map(k => woodCount[k]),
+    ['#198754', '#0dcaf0', '#6f4e37'],
+  );
+
+  // ── Doughnut: Markup ──────────────────────────────────────────────────────
+  const markupBuckets = {};
+  log.forEach(e => {
+    const key = `×${parseFloat(e.markup).toFixed(1)}`;
+    markupBuckets[key] = (markupBuckets[key] || 0) + 1;
+  });
+  const mkKeys = Object.keys(markupBuckets).sort();
+  renderDoughnut(
+    'chart-markup',
+    mkKeys,
+    mkKeys.map(k => markupBuckets[k]),
+    ['#6610f2', '#fd7e14', '#20c997', '#0d6efd', '#dc3545', '#ffc107'],
+  );
+
+  // ── Bar: Top sizes ────────────────────────────────────────────────────────
+  const topSizes = Object.entries(sizeCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  renderBar('chart-sizes', topSizes.map(([s]) => s + ' cm'), topSizes.map(([, c]) => c), '#0d6efd');
+
+  // ── Bar: Price distribution ───────────────────────────────────────────────
+  const BUCKETS = [0, 50, 100, 150, 200, 300, 400, 600, 1000, Infinity];
+  const bCounts = new Array(BUCKETS.length - 1).fill(0);
+  log.forEach(e => {
+    for (let i = 0; i < BUCKETS.length - 1; i++) {
+      if (e.verkaufspreis >= BUCKETS[i] && e.verkaufspreis < BUCKETS[i + 1]) {
+        bCounts[i]++;
+        break;
+      }
+    }
+  });
+  const bLabels = BUCKETS.slice(0, -1).map((b, i) =>
+    BUCKETS[i + 1] === Infinity ? `${b}+` : `${b}–${BUCKETS[i + 1]}`
+  );
+  renderBar('chart-prices', bLabels, bCounts, '#20c997');
+
+  // ── Recent table ─────────────────────────────────────────────────────────
+  const tbody = document.getElementById('stats-recent-tbody');
+  tbody.innerHTML = '';
+  log.slice(0, 30).forEach(e => {
+    const dt  = new Date(e.ts);
+    const fmt = dt.toLocaleString('de-CH', { dateStyle: 'short', timeStyle: 'short' });
+    const tr  = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="text-secondary x-small">${fmt}</td>
+      <td class="fw-semibold small">${e.size} cm</td>
+      <td class="small">${e.fabric}</td>
+      <td class="small">${WOOD_LBL[e.wood] || e.wood}</td>
+      <td class="small text-secondary">×${parseFloat(e.markup).toFixed(1)}</td>
+      <td class="text-end font-monospace small">CHF ${e.verkaufspreis}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('btn-clear-stats').addEventListener('click', () => {
+  if (!confirm('Gesamten Berechnungsverlauf löschen?')) return;
+  localStorage.removeItem(LOG_KEY);
+  localStorage.removeItem('wa_history');
+  renderStats();
+});
+
+renderStats();
+</script>
+{% endblock %}

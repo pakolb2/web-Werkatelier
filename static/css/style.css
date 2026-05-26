@@ -123,6 +123,14 @@ body {
   border-color: #198754 !important;
 }
 
+/* ── Stats summary cards ─────────────────────────────────────────────────── */
+
+#stats-content .card { transition: box-shadow 0.15s; }
+
+/* ── Price chart panel ───────────────────────────────────────────────────── */
+
+#chart-panel canvas { display: block; }
+
 /* ── Print ───────────────────────────────────────────────────────────────── */
 
 @media print {
