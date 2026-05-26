@@ -4,15 +4,19 @@
 {% block content %}
 <div class="d-flex align-items-center gap-3 mb-1 flex-wrap">
   <h1 class="mb-0"><i class="bi bi-table me-2 text-primary"></i>Preisliste</h1>
-  <span class="badge bg-secondary">Classic 45 – Doppelrahmen</span>
-  <span class="badge bg-secondary-subtle text-secondary border">Aufschlag {{ markup }}×</span>
+  <span class="badge bg-secondary">Classic 45</span>
 </div>
-<p class="text-secondary small mb-4">
+<div class="d-flex align-items-center gap-3 mb-3 mt-2 flex-wrap d-print-none">
+  <label class="form-label mb-0 small fw-semibold text-secondary">Aufschlagsfaktor</label>
+  <input type="range" class="form-range" id="markup-slider"
+         min="2.0" max="6.0" step="0.1" value="{{ markup }}"
+         style="width:180px">
+  <span class="badge bg-primary font-monospace fs-6 px-3" id="markup-val">{{ markup }}×</span>
+  <span class="text-secondary x-small ms-1">Ziehen zum Anpassen — Seite aktualisiert automatisch</span>
+</div>
+<p class="text-secondary small mb-3">
   Automatisch berechnete Verkaufspreise für Standardformate mit empfohlenen Zwischenstücken.
-  Anderen Aufschlag: <a href="{{ url_for('preisliste') }}?markup=3.5">3.5×</a>
-  · <a href="{{ url_for('preisliste') }}?markup=4.0">4.0×</a>
-  · <a href="{{ url_for('preisliste') }}?markup=4.2">4.2×</a>
-  · <a href="{{ url_for('preisliste') }}?markup=5.0">5.0×</a>
+  Klick auf einen Preis fügt ihn direkt zur Bestellung hinzu.
 </p>
 
 <div class="mb-3 d-print-none">
@@ -56,10 +60,16 @@
         <td class="text-secondary small">{{ row.area_m2 }} m²</td>
         <td class="text-secondary small">{{ row.support }}</td>
         {% for wood in ["classic_single", "classic_double", "museo"] %}
-        <td class="text-end font-monospace baumwolle-col">{{ row.prices.Baumwolle[wood] }}</td>
+        <td class="text-end font-monospace baumwolle-col price-cell"
+            data-size="{{ row.label }}" data-fabric="Baumwolle" data-wood="{{ wood }}"
+            data-support="{{ row.support }}" data-price="{{ row.prices.Baumwolle[wood] }}"
+            title="Zur Bestellung hinzufügen">{{ "%.2f"|format(row.prices.Baumwolle[wood]) }}</td>
         {% endfor %}
         {% for wood in ["classic_single", "classic_double", "museo"] %}
-        <td class="text-end font-monospace leinen-col">{{ row.prices.Leinen[wood] }}</td>
+        <td class="text-end font-monospace leinen-col price-cell"
+            data-size="{{ row.label }}" data-fabric="Leinen" data-wood="{{ wood }}"
+            data-support="{{ row.support }}" data-price="{{ row.prices.Leinen[wood] }}"
+            title="Zur Bestellung hinzufügen">{{ "%.2f"|format(row.prices.Leinen[wood]) }}</td>
         {% endfor %}
       </tr>
       {% endfor %}
@@ -75,6 +85,9 @@
 
 {% block scripts %}
 <script>
+'use strict';
+
+// ── Fabric filter ─────────────────────────────────────────────────────────────
 document.querySelectorAll('input[name="fabric"]').forEach(r => {
   r.addEventListener('change', () => {
     const v = r.value;
@@ -84,5 +97,66 @@ document.querySelectorAll('input[name="fabric"]').forEach(r => {
       el.classList.toggle('d-none', v === 'Baumwolle'));
   });
 });
+
+// ── Markup slider ─────────────────────────────────────────────────────────────
+(function () {
+  const slider  = document.getElementById('markup-slider');
+  const valBadge = document.getElementById('markup-val');
+  if (!slider) return;
+
+  let debounce;
+  slider.addEventListener('input', () => {
+    const v = parseFloat(slider.value).toFixed(1);
+    valBadge.textContent = v + '×';
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      window.location.href = '{{ url_for("preisliste") }}?markup=' + v;
+    }, 700);
+  });
+})();
+
+// ── Clickable price cells → add to ORDER ─────────────────────────────────────
+(function () {
+  const WOOD_LBL = {
+    classic_single: 'Classic Einfach',
+    classic_double: 'Classic Doppel',
+    museo:          'Museo 45',
+  };
+
+  document.querySelectorAll('.price-cell').forEach(cell => {
+    cell.style.cursor = 'pointer';
+
+    cell.addEventListener('click', () => {
+      if (typeof ORDER === 'undefined') return;
+
+      const size    = cell.dataset.size;
+      const fabric  = cell.dataset.fabric;
+      const wood    = cell.dataset.wood;
+      const support = cell.dataset.support;
+      const verkauf = parseFloat(cell.dataset.price);
+
+      if (!size || isNaN(verkauf)) return;
+
+      ORDER.addItem({
+        type:    'canvas',
+        size,
+        fabric,
+        wood,
+        support: support || 'Kein Zwischenstück',
+        verkauf,
+        mwst:    true,
+      });
+
+      // Flash feedback on the cell
+      const orig = cell.textContent;
+      cell.innerHTML = '<i class="bi bi-check text-success"></i>';
+      cell.classList.add('table-success');
+      setTimeout(() => {
+        cell.textContent = orig;
+        cell.classList.remove('table-success');
+      }, 900);
+    });
+  });
+})();
 </script>
 {% endblock %}

@@ -183,6 +183,7 @@ document.getElementById('btn-calc-material').addEventListener('click', async () 
     lastMatResult = data;
     lastMatItems  = items;
     renderResult(data);
+    logMaterialCalc(items, data);
     document.getElementById('btn-add-mat-order').classList.remove('d-none');
     resultError.classList.add('d-none');
   } catch (e) {
@@ -231,6 +232,22 @@ function renderResult(data) {
 
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ── Calc log (for Statistik page) ─────────────────────────────────────────────
+
+function logMaterialCalc(items, result) {
+  const entry = {
+    ts:       Date.now(),
+    type:     'material',
+    kategorie: [...new Set(items.map(i => i.kategorie))].join(', '),
+    items:    items.map(i => i.name),
+    total:    parseFloat(result.total.replace(/[^0-9.]/g, '')) || 0,
+  };
+  let log = JSON.parse(localStorage.getItem('wa_calc_log') || '[]');
+  log.unshift(entry);
+  if (log.length > 200) log = log.slice(0, 200);
+  localStorage.setItem('wa_calc_log', JSON.stringify(log));
 }
 
 // ── Add to order ──────────────────────────────────────────────────────────────

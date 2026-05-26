@@ -14,7 +14,7 @@
 <div id="stats-empty" class="text-center py-5 text-secondary d-none">
   <i class="bi bi-calculator fs-1 d-block mb-3 opacity-50"></i>
   <p class="mb-1 fw-semibold">Noch keine Berechnungen vorhanden</p>
-  <p class="small">Öffne <a href="/leinwandpreise">Leinwandpreis</a> und berechne einige Leinwände.</p>
+  <p class="small">Öffne <a href="/leinwandpreise">Leinwandpreis</a> oder <a href="/materialpreise">Materialpreise</a> und berechne einige Preise.</p>
 </div>
 
 <!-- Stats content -->
@@ -26,11 +26,12 @@
       <div class="card shadow-sm text-center p-3">
         <div class="text-secondary small mb-1">Berechnungen</div>
         <div class="fs-3 fw-bold text-primary font-monospace" id="stat-total">—</div>
+        <div class="text-secondary x-small" id="stat-type-split"></div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card shadow-sm text-center p-3">
-        <div class="text-secondary small mb-1">Ø Verkaufspreis</div>
+        <div class="text-secondary small mb-1">Ø Leinwandpreis</div>
         <div class="fs-3 fw-bold text-success font-monospace" id="stat-avg-price">—</div>
       </div>
     </div>
@@ -205,66 +206,82 @@ function renderStats() {
   document.getElementById('stats-content').classList.remove('d-none');
   document.getElementById('stat-badge').textContent = `${log.length} Einträge`;
 
+  // ── Split by type ─────────────────────────────────────────────────────────
+  const canvasLog = log.filter(e => !e.type || e.type === 'canvas');
+  const matLog    = log.filter(e => e.type === 'material');
+
+  const parts = [];
+  if (canvasLog.length) parts.push(`${canvasLog.length} Leinwand`);
+  if (matLog.length)    parts.push(`${matLog.length} Material`);
+  document.getElementById('stat-type-split').textContent = parts.join(' · ');
+
   // ── Summary cards ─────────────────────────────────────────────────────────
-  const avgPrice = log.reduce((s, e) => s + e.verkaufspreis, 0) / log.length;
+  document.getElementById('stat-total').textContent = log.length;
+
+  if (canvasLog.length > 0) {
+    const avgPrice = canvasLog.reduce((s, e) => s + (e.verkaufspreis || 0), 0) / canvasLog.length;
+    document.getElementById('stat-avg-price').textContent = `CHF ${avgPrice.toFixed(0)}`;
+  } else {
+    document.getElementById('stat-avg-price').textContent = '—';
+  }
+
   const sizeCount = {}, fabCount = {}, woodCount = {};
-  log.forEach(e => {
-    sizeCount[e.size] = (sizeCount[e.size] || 0) + 1;
-    fabCount[e.fabric] = (fabCount[e.fabric] || 0) + 1;
-    woodCount[e.wood]  = (woodCount[e.wood]  || 0) + 1;
+  canvasLog.forEach(e => {
+    if (e.size)   sizeCount[e.size]  = (sizeCount[e.size]  || 0) + 1;
+    if (e.fabric) fabCount[e.fabric] = (fabCount[e.fabric] || 0) + 1;
+    if (e.wood)   woodCount[e.wood]  = (woodCount[e.wood]  || 0) + 1;
   });
   const topSize   = Object.entries(sizeCount).sort((a, b) => b[1] - a[1])[0];
   const topFabric = Object.entries(fabCount) .sort((a, b) => b[1] - a[1])[0];
 
-  document.getElementById('stat-total')     .textContent = log.length;
-  document.getElementById('stat-avg-price') .textContent = `CHF ${avgPrice.toFixed(0)}`;
   document.getElementById('stat-top-size')  .textContent = topSize   ? topSize[0]   + ' cm' : '—';
   document.getElementById('stat-top-fabric').textContent = topFabric ? topFabric[0]         : '—';
 
-  // ── Doughnut: Material ────────────────────────────────────────────────────
-  renderDoughnut(
-    'chart-material',
-    Object.keys(fabCount),
-    Object.values(fabCount),
-    ['#0d6efd', '#ffc107', '#dc3545'],
-  );
+  // ── Charts: canvas entries only ───────────────────────────────────────────
+  if (canvasLog.length > 0) {
+    // Doughnut: Material
+    renderDoughnut(
+      'chart-material',
+      Object.keys(fabCount),
+      Object.values(fabCount),
+      ['#0d6efd', '#ffc107', '#dc3545'],
+    );
 
-  // ── Doughnut: Wood type ───────────────────────────────────────────────────
-  const woodKeys = Object.keys(woodCount);
-  renderDoughnut(
-    'chart-wood',
-    woodKeys.map(k => WOOD_LBL[k] || k),
-    woodKeys.map(k => woodCount[k]),
-    ['#198754', '#0dcaf0', '#6f4e37'],
-  );
+    // Doughnut: Wood type
+    const woodKeys = Object.keys(woodCount);
+    renderDoughnut(
+      'chart-wood',
+      woodKeys.map(k => WOOD_LBL[k] || k),
+      woodKeys.map(k => woodCount[k]),
+      ['#198754', '#0dcaf0', '#6f4e37'],
+    );
 
-  // ── Doughnut: Markup ──────────────────────────────────────────────────────
-  const markupBuckets = {};
-  log.forEach(e => {
-    const key = `×${parseFloat(e.markup).toFixed(1)}`;
-    markupBuckets[key] = (markupBuckets[key] || 0) + 1;
-  });
-  const mkKeys = Object.keys(markupBuckets).sort();
-  renderDoughnut(
-    'chart-markup',
-    mkKeys,
-    mkKeys.map(k => markupBuckets[k]),
-    ['#6610f2', '#fd7e14', '#20c997', '#0d6efd', '#dc3545', '#ffc107'],
-  );
+    // Doughnut: Markup
+    const markupBuckets = {};
+    canvasLog.forEach(e => {
+      const key = `×${parseFloat(e.markup).toFixed(1)}`;
+      markupBuckets[key] = (markupBuckets[key] || 0) + 1;
+    });
+    const mkKeys = Object.keys(markupBuckets).sort();
+    renderDoughnut(
+      'chart-markup',
+      mkKeys,
+      mkKeys.map(k => markupBuckets[k]),
+      ['#6610f2', '#fd7e14', '#20c997', '#0d6efd', '#dc3545', '#ffc107'],
+    );
 
-  // ── Bar: Top sizes ────────────────────────────────────────────────────────
-  const topSizes = Object.entries(sizeCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  renderBar('chart-sizes', topSizes.map(([s]) => s + ' cm'), topSizes.map(([, c]) => c), '#0d6efd');
+    // Bar: Top sizes
+    const topSizes = Object.entries(sizeCount).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    renderBar('chart-sizes', topSizes.map(([s]) => s + ' cm'), topSizes.map(([, c]) => c), '#0d6efd');
+  }
 
-  // ── Bar: Price distribution ───────────────────────────────────────────────
+  // ── Bar: Price distribution (all types) ───────────────────────────────────
   const BUCKETS = [0, 50, 100, 150, 200, 300, 400, 600, 1000, Infinity];
   const bCounts = new Array(BUCKETS.length - 1).fill(0);
   log.forEach(e => {
+    const price = e.verkaufspreis || e.total || 0;
     for (let i = 0; i < BUCKETS.length - 1; i++) {
-      if (e.verkaufspreis >= BUCKETS[i] && e.verkaufspreis < BUCKETS[i + 1]) {
-        bCounts[i]++;
-        break;
-      }
+      if (price >= BUCKETS[i] && price < BUCKETS[i + 1]) { bCounts[i]++; break; }
     }
   });
   const bLabels = BUCKETS.slice(0, -1).map((b, i) =>
@@ -272,20 +289,28 @@ function renderStats() {
   );
   renderBar('chart-prices', bLabels, bCounts, '#20c997');
 
-  // ── Recent table ─────────────────────────────────────────────────────────
+  // ── Recent table (both types) ─────────────────────────────────────────────
   const tbody = document.getElementById('stats-recent-tbody');
   tbody.innerHTML = '';
   log.slice(0, 30).forEach(e => {
     const dt  = new Date(e.ts);
     const fmt = dt.toLocaleString('de-CH', { dateStyle: 'short', timeStyle: 'short' });
     const tr  = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="text-secondary x-small">${fmt}</td>
-      <td class="fw-semibold small">${e.size} cm</td>
-      <td class="small">${e.fabric}</td>
-      <td class="small">${WOOD_LBL[e.wood] || e.wood}</td>
-      <td class="small text-secondary">×${parseFloat(e.markup).toFixed(1)}</td>
-      <td class="text-end font-monospace small">CHF ${e.verkaufspreis}</td>`;
+    if (!e.type || e.type === 'canvas') {
+      tr.innerHTML = `
+        <td class="text-secondary x-small">${fmt}</td>
+        <td class="fw-semibold small">${e.size} cm</td>
+        <td class="small">${e.fabric}</td>
+        <td class="small">${WOOD_LBL[e.wood] || e.wood || '—'}</td>
+        <td class="small text-secondary">×${parseFloat(e.markup).toFixed(1)}</td>
+        <td class="text-end font-monospace small">CHF ${e.verkaufspreis}</td>`;
+    } else {
+      tr.innerHTML = `
+        <td class="text-secondary x-small">${fmt}</td>
+        <td class="fw-semibold small text-success"><i class="bi bi-basket me-1"></i>Material</td>
+        <td class="small text-secondary" colspan="3">${e.kategorie || (e.items || []).join(', ') || '—'}</td>
+        <td class="text-end font-monospace small">CHF ${(e.total || 0).toFixed(2)}</td>`;
+    }
     tbody.appendChild(tr);
   });
 }
