@@ -51,7 +51,8 @@ def leinwandpreise():
 @app.route("/materialpreise")
 def materialpreise():
     mat_prices, _ = load_all()
-    return render_template("materialpreise.html", prices=mat_prices)
+    biz_info = load_business_info()
+    return render_template("materialpreise.html", prices=mat_prices, business_info=biz_info)
 
 
 @app.route("/einstellungen")

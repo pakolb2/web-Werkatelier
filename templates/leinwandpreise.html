@@ -252,43 +252,7 @@
 </div>
 
 <!-- ── Order panel (full width) ─────────────────────────────────────────────── -->
-<section id="order-panel" class="mt-4 d-none d-print-order">
-  <div class="card shadow-sm">
-    <div class="card-header d-flex align-items-center gap-2 bg-success text-white">
-      <i class="bi bi-cart3 fs-5"></i>
-      <span class="fw-semibold">Bestellung</span>
-      <span class="badge bg-white text-success ms-1" id="order-count">0</span>
-      <div class="ms-auto d-flex gap-2">
-        <button id="btn-print-order" class="btn btn-sm btn-light d-none d-print-none">
-          <i class="bi bi-printer me-1"></i>Drucken
-        </button>
-        <button id="btn-clear-order" class="btn btn-sm btn-outline-light d-print-none">
-          <i class="bi bi-trash me-1"></i>Löschen
-        </button>
-      </div>
-    </div>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
-        <thead class="table-light small">
-          <tr>
-            <th>Format</th><th>Material</th><th>Rahmen</th>
-            <th>Zwischenstück</th><th class="text-end">Verkaufspreis</th>
-            <th class="d-print-none"></th>
-          </tr>
-        </thead>
-        <tbody id="order-tbody"></tbody>
-      </table>
-    </div>
-    <div class="card-footer d-flex justify-content-between align-items-center">
-      <span class="text-secondary small" id="order-mwst-note"></span>
-      <div>
-        <span class="text-secondary me-2">Total</span>
-        <strong class="fs-5 font-monospace" id="order-total"></strong>
-        <span class="text-secondary ms-1">CHF</span>
-      </div>
-    </div>
-  </div>
-</section>
+{% include '_order_panel.html' %}
 
 <!-- ── Calculation history ──────────────────────────────────────────────────── -->
 <details class="mt-4 d-print-none" id="history-details">

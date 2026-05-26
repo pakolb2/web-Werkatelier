@@ -2,6 +2,8 @@
 
 let fabricRowCounters = {};
 let frameRowCounters  = {};
+let lastMatResult     = null;
+let lastMatItems      = [];
 
 // ── Toggle show/hide on checkbox ──────────────────────────────────────────────
 
@@ -178,7 +180,10 @@ document.getElementById('btn-calc-material').addEventListener('click', async () 
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
 
+    lastMatResult = data;
+    lastMatItems  = items;
     renderResult(data);
+    document.getElementById('btn-add-mat-order').classList.remove('d-none');
     resultError.classList.add('d-none');
   } catch (e) {
     resultPanel.classList.add('d-none');
@@ -227,3 +232,46 @@ function renderResult(data) {
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+// ── Add to order ──────────────────────────────────────────────────────────────
+
+document.getElementById('btn-add-mat-order').addEventListener('click', () => {
+  if (!lastMatResult) return;
+
+  // Strip " CHF" from the total string to get a float
+  const total = parseFloat(lastMatResult.total.replace(/[^0-9.]/g, '')) || 0;
+
+  // Build a short readable summary for the Details column
+  const summary = lastMatItems.map(item => {
+    // Format menge with a unit hint based on price key
+    const key = item.preis_key;
+    let qty;
+    if (key.endsWith('_qm'))       qty = `${(+item.menge).toFixed(2)} m²`;
+    else if (key.endsWith('_m'))   qty = `${(+item.menge).toFixed(2)} m`;
+    else if (key.endsWith('_l'))   qty = `${(+item.menge * 10).toFixed(0)} dl`;
+    else                           qty = `${(+item.menge).toFixed(4)}`;
+    return `${item.name} (${qty})`;
+  }).join(', ');
+
+  // Use category names as the product description
+  const categories = [...new Set(lastMatItems.map(i => i.kategorie))].join(' · ');
+
+  const hasMwst = document.getElementById('mat-chk-mwst').checked;
+
+  ORDER.addItem({
+    type:        'material',
+    produkt:     categories,
+    qty_display: summary,
+    verkauf:     total,
+    mwst:        hasMwst,
+  });
+
+  // Flash feedback
+  const btn = document.getElementById('btn-add-mat-order');
+  btn.innerHTML = '<i class="bi bi-check me-1"></i>Hinzugefügt!';
+  btn.classList.replace('btn-success', 'btn-secondary');
+  setTimeout(() => {
+    btn.innerHTML = '<i class="bi bi-plus-circle me-1"></i>Zur Bestellung';
+    btn.classList.replace('btn-secondary', 'btn-success');
+  }, 1500);
+});

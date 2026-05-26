@@ -150,15 +150,33 @@
         </div>
         <div id="mat-result-body" class="card-body p-0"></div>
         <div class="card-footer">
-          <h5 class="mb-0">Gesamtpreis: <strong id="mat-total"></strong></h5>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0">Total: <strong id="mat-total"></strong></h5>
+            <div class="d-flex align-items-center gap-3">
+              <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" id="mat-chk-mwst">
+                <label class="form-check-label small fw-semibold" for="mat-chk-mwst">MwSt 8.1%</label>
+              </div>
+              <button id="btn-add-mat-order" class="btn btn-success btn-sm d-none">
+                <i class="bi bi-plus-circle me-1"></i>Zur Bestellung
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
     <div id="mat-result-error" class="alert alert-danger d-none"></div>
   </div>
 </div>
+
+<!-- ── Order panel (full width) ─────────────────────────────────────────────── -->
+{% include '_order_panel.html' %}
+
 {% endblock %}
 
 {% block scripts %}
+<script>const BUSINESS_INFO = {{ business_info | tojson }};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="{{ url_for('static', filename='js/material.js') }}"></script>
 {% endblock %}

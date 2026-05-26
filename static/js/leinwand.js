@@ -15,7 +15,6 @@ const state = {
 };
 
 let lastResult = null;   // most recent API response
-let orderItems  = JSON.parse(localStorage.getItem('wa_order') || '[]');
 
 // ── DOM helpers ───────────────────────────────────────────────────────────────
 
@@ -324,7 +323,7 @@ $('chk-mwst').addEventListener('change', () => {
     $('res-mwst').textContent   = `${mwst.toFixed(2)} CHF`;
     $('res-brutto').textContent = `${brutto.toFixed(2)} CHF`;
   }
-  renderOrderPanel(); // keep order total in sync if order is open
+  ORDER.renderPanel(); // keep order total in sync if order is open
 });
 
 // ── Copy to clipboard ─────────────────────────────────────────────────────────
@@ -345,8 +344,7 @@ $('btn-copy').addEventListener('click', () => {
 
 // ── Print single invoice ──────────────────────────────────────────────────────
 
-$('btn-print-single').addEventListener('click', () => generateInvoicePDF('single'));
-$('btn-print-order') && $('btn-print-order').addEventListener('click', () => generateInvoicePDF('order'));
+$('btn-print-single').addEventListener('click', () => generateInvoicePDF());
 
 // ── Frame comparison ──────────────────────────────────────────────────────────
 
@@ -390,7 +388,8 @@ $('btn-compare').addEventListener('click', async () => {
 
 $('btn-add-order').addEventListener('click', () => {
   if (!lastResult) return;
-  orderItems.push({
+  ORDER.addItem({
+    type:    'canvas',
     size:    `${state.length}×${state.width}`,
     fabric:  state.material,
     wood:    WOOD_LABELS[state.wood],
@@ -398,9 +397,6 @@ $('btn-add-order').addEventListener('click', () => {
     verkauf: parseFloat(lastResult.verkaufspreis),
     mwst:    $('chk-mwst').checked,
   });
-  localStorage.setItem('wa_order', JSON.stringify(orderItems));
-  renderOrderPanel();
-
   // Flash feedback
   const btn = $('btn-add-order');
   btn.innerHTML = '<i class="bi bi-check me-1"></i>Hinzugefügt!';
@@ -410,55 +406,6 @@ $('btn-add-order').addEventListener('click', () => {
     btn.classList.replace('btn-secondary', 'btn-success');
   }, 1500);
 });
-
-$('btn-clear-order').addEventListener('click', () => {
-  orderItems = [];
-  localStorage.removeItem('wa_order');
-  renderOrderPanel();
-});
-
-function renderOrderPanel() {
-  const panel = $('order-panel');
-  if (orderItems.length === 0) { panel.classList.add('d-none'); return; }
-
-  panel.classList.remove('d-none');
-  $('order-count').textContent = orderItems.length;
-  $('btn-print-order').classList.remove('d-none');
-
-  const tbody = $('order-tbody');
-  tbody.innerHTML = '';
-  let total = 0;
-  orderItems.forEach((item, idx) => {
-    const net = item.verkauf;
-    const mwst = item.mwst ? Math.round(net * 0.081 * 20) / 20 : 0;
-    const gross = Math.round((net + mwst) * 20) / 20;
-    total += gross;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="fw-semibold">${item.size} cm</td>
-      <td class="small">${item.fabric}</td>
-      <td class="small">${item.wood}</td>
-      <td class="small text-secondary">${item.support}</td>
-      <td class="text-end font-monospace">${gross.toFixed(2)} CHF${item.mwst ? '<span class="text-secondary x-small ms-1">inkl.</span>' : ''}</td>
-      <td class="d-print-none text-end">
-        <button class="btn btn-sm btn-outline-danger py-0 px-1 remove-order-item" data-idx="${idx}">×</button>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-
-  const hasMwst = orderItems.some(i => i.mwst);
-  $('order-mwst-note').textContent = hasMwst ? 'inkl. MwSt 8.1% (auf markierten Positionen)' : '';
-  $('order-total').textContent = (Math.round(total * 20) / 20).toFixed(2);
-
-  // Remove item buttons
-  document.querySelectorAll('.remove-order-item').forEach(btn =>
-    btn.addEventListener('click', () => {
-      orderItems.splice(parseInt(btn.dataset.idx), 1);
-      localStorage.setItem('wa_order', JSON.stringify(orderItems));
-      renderOrderPanel();
-    })
-  );
-}
 
 // ── History ───────────────────────────────────────────────────────────────────
 
@@ -571,146 +518,62 @@ function logCalc() {
 
 // ── PDF invoice (jsPDF) ───────────────────────────────────────────────────────
 
-function generateInvoicePDF(type) {
+function generateInvoicePDF() {
   if (!window.jspdf) { alert('PDF-Bibliothek noch nicht geladen — bitte kurz warten.'); return; }
+  if (!lastResult) return;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
   const W = 210, ML = 15, MR = 15;
-  const biz = window.BUSINESS_INFO || {};
-  const today = new Date().toLocaleDateString('de-CH');
+  let Y = ORDER.drawPDFHeader(doc, W, ML, MR);
 
-  // ── Header ────────────────────────────────────────────────────────────────
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(20);
-  doc.setTextColor(30);
-  doc.text(biz.name || 'Werkatelier', ML, 22);
-
-  let addrY = 27;
-  if (biz.subtitle) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
-    doc.text(biz.subtitle, ML, addrY); addrY += 5;
-  }
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
-  if (biz.address) { doc.text(biz.address, ML, addrY); addrY += 4.5; }
-  if (biz.city)    { doc.text(biz.city,    ML, addrY); addrY += 4.5; }
-  const contact = [biz.phone, biz.email, biz.website].filter(Boolean).join('   ·   ');
-  if (contact) { doc.text(contact, ML, addrY); }
-
-  // Document type (top-right)
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(60);
-  doc.text('OFFERTE', W - MR, 22, { align: 'right' });
+  // Title
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
+  doc.text(`Leinwand ${state.length}×${state.width} cm`, ML, Y); Y += 6;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
-  doc.text(`Datum: ${today}`, W - MR, 29, { align: 'right' });
+  doc.text(`${state.material}  ·  ${WOOD_LABELS[state.wood]}  ·  ${state.supportLabel}`, ML, Y); Y += 8;
 
-  // Separator
-  doc.setDrawColor(200); doc.setLineWidth(0.4);
-  doc.line(ML, 50, W - MR, 50);
+  // Calc table
+  const tableBody = lastResult.rows.map(r => [r.produkt, r.stueckpreis, r.anzahl, r.betrag + ' CHF']);
+  doc.autoTable({
+    startY: Y,
+    head: [['Posten', 'Einheitspreis', 'Menge', 'CHF']],
+    body: tableBody,
+    styles: { fontSize: 9, cellPadding: 2.5 },
+    headStyles: { fillColor: [35, 35, 35], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 249, 250] },
+    columnStyles: { 3: { halign: 'right', fontStyle: 'bold' } },
+    margin: { left: ML, right: MR },
+  });
+  Y = doc.lastAutoTable.finalY + 6;
 
-  let Y = 58;
+  // Summary
+  const cR = W - MR, cL = cR - 68;
+  doc.setDrawColor(210); doc.line(cL - 4, Y, cR, Y); Y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120);
+  doc.text('Materialpreis', cL, Y);
+  doc.text(`CHF ${lastResult.total_material}`, cR, Y, { align: 'right' }); Y += 5.5;
+  doc.text(`Aufschlag ×${state.markup.toFixed(1)}`, cL, Y); Y += 5.5;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20);
+  doc.text('Verkaufspreis', cL, Y);
+  doc.text(`CHF ${lastResult.verkaufspreis}`, cR, Y, { align: 'right' }); Y += 7;
 
-  if (type === 'single' && lastResult) {
-    // Title
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
-    doc.text(`Leinwand ${state.length}×${state.width} cm`, ML, Y); Y += 6;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
-    doc.text(`${state.material}  ·  ${WOOD_LABELS[state.wood]}  ·  ${state.supportLabel}`, ML, Y); Y += 8;
-
-    // Calc table
-    const tableBody = lastResult.rows.map(r => [r.produkt, r.stueckpreis, r.anzahl, r.betrag + ' CHF']);
-    doc.autoTable({
-      startY: Y,
-      head: [['Posten', 'Einheitspreis', 'Menge', 'CHF']],
-      body: tableBody,
-      styles: { fontSize: 9, cellPadding: 2.5 },
-      headStyles: { fillColor: [35, 35, 35], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 249, 250] },
-      columnStyles: { 3: { halign: 'right', fontStyle: 'bold' } },
-      margin: { left: ML, right: MR },
-    });
-    Y = doc.lastAutoTable.finalY + 6;
-
-    // Summary
-    const cR = W - MR, cL = cR - 68;
-    doc.setDrawColor(210); doc.line(cL - 4, Y, cR, Y); Y += 6;
+  if ($('chk-mwst').checked) {
+    const v = parseFloat(lastResult.verkaufspreis);
+    const mwst   = Math.round(v * 0.081 * 20) / 20;
+    const brutto = Math.round((v + mwst)  * 20) / 20;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120);
-    doc.text('Materialpreis', cL, Y);
-    doc.text(`CHF ${lastResult.total_material}`, cR, Y, { align: 'right' }); Y += 5.5;
-    doc.text(`Aufschlag ×${state.markup.toFixed(1)}`, cL, Y); Y += 5.5;
+    doc.text('MwSt 8.1%', cL, Y);
+    doc.text(`CHF ${mwst.toFixed(2)}`, cR, Y, { align: 'right' }); Y += 5.5;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20);
-    doc.text('Verkaufspreis', cL, Y);
-    doc.text(`CHF ${lastResult.verkaufspreis}`, cR, Y, { align: 'right' }); Y += 7;
-
-    if ($('chk-mwst').checked) {
-      const v = parseFloat(lastResult.verkaufspreis);
-      const mwst   = Math.round(v * 0.081 * 20) / 20;
-      const brutto = Math.round((v + mwst)  * 20) / 20;
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120);
-      doc.text('MwSt 8.1%', cL, Y);
-      doc.text(`CHF ${mwst.toFixed(2)}`, cR, Y, { align: 'right' }); Y += 5.5;
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(20);
-      doc.text('Total (inkl. MwSt)', cL, Y);
-      doc.text(`CHF ${brutto.toFixed(2)}`, cR, Y, { align: 'right' });
-    }
-
-  } else if (type === 'order' && orderItems.length > 0) {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
-    doc.text('Leinwandbestellung', ML, Y); Y += 8;
-
-    const tableBody = orderItems.map(item => {
-      const net   = item.verkauf;
-      const mwst  = item.mwst ? Math.round(net * 0.081 * 20) / 20 : 0;
-      const gross = Math.round((net + mwst) * 20) / 20;
-      return [`${item.size} cm`, item.fabric, item.wood, item.support,
-              `CHF ${gross.toFixed(2)}${item.mwst ? ' *' : ''}`];
-    });
-    doc.autoTable({
-      startY: Y,
-      head: [['Format', 'Material', 'Rahmen', 'Zwischenstück', 'CHF']],
-      body: tableBody,
-      styles: { fontSize: 9, cellPadding: 2.5 },
-      headStyles: { fillColor: [25, 135, 84], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 249, 250] },
-      columnStyles: { 4: { halign: 'right', fontStyle: 'bold' } },
-      margin: { left: ML, right: MR },
-    });
-    Y = doc.lastAutoTable.finalY + 6;
-
-    const total = orderItems.reduce((s, item) => {
-      const mwst = item.mwst ? Math.round(item.verkauf * 0.081 * 20) / 20 : 0;
-      return s + Math.round((item.verkauf + mwst) * 20) / 20;
-    }, 0);
-
-    const cR = W - MR, cL = cR - 68;
-    doc.setDrawColor(210); doc.line(cL - 4, Y, cR, Y); Y += 6;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(20);
-    doc.text('Total', cL, Y);
-    doc.text(`CHF ${(Math.round(total * 20) / 20).toFixed(2)}`, cR, Y, { align: 'right' }); Y += 6;
-    if (orderItems.some(i => i.mwst)) {
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
-      doc.text('* inkl. MwSt 8.1%', cL, Y);
-    }
+    doc.text('Total (inkl. MwSt)', cL, Y);
+    doc.text(`CHF ${brutto.toFixed(2)}`, cR, Y, { align: 'right' });
   }
 
-  // ── Footer ────────────────────────────────────────────────────────────────
-  const fY = 282;
-  doc.setDrawColor(200); doc.line(ML, fY - 7, W - MR, fY - 7);
-  doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5); doc.setTextColor(130);
-  let fLine = fY - 1;
-  if (biz.invoice_note) { doc.text(biz.invoice_note, ML, fLine); fLine += 5; }
-  const footParts = [];
-  if (biz.vat_nr)       footParts.push(`MwSt-Nr: ${biz.vat_nr}`);
-  if (biz.bank_details) footParts.push(biz.bank_details);
-  if (footParts.length) {
-    doc.setFont('helvetica', 'normal');
-    doc.text(footParts.join('   ·   '), ML, fLine);
-  }
+  ORDER.drawPDFFooter(doc, W, ML, MR);
 
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const fname = type === 'order'
-    ? `Bestellung_${today.replace(/\./g, '-')}.pdf`
-    : `Offerte_${state.length}x${state.width}_${state.material}_${today.replace(/\./g, '-')}.pdf`;
-  doc.save(fname);
+  const today = new Date().toLocaleDateString('de-CH');
+  doc.save(`Offerte_${state.length}x${state.width}_${state.material}_${today.replace(/\./g, '-')}.pdf`);
 }
 
 // ── Price curve chart ─────────────────────────────────────────────────────────
@@ -793,5 +656,4 @@ $('btn-chart') && $('btn-chart').addEventListener('click', () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-renderOrderPanel();   // Restore order from localStorage on page load
 renderHistory();
