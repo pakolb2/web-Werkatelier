@@ -68,6 +68,12 @@ def einstellungen():
     )
 
 
+@app.route("/bestellung")
+def bestellung():
+    biz_info = load_business_info()
+    return render_template("bestellung.html", business_info=biz_info)
+
+
 @app.route("/statistik")
 def statistik():
     return render_template("statistik.html")

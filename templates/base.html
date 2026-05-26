@@ -34,8 +34,8 @@
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link position-relative" href="#order-panel" id="nav-order-link"
-             onclick="event.preventDefault(); document.getElementById('order-panel')?.scrollIntoView({behavior:'smooth'})">
+          <a class="nav-link position-relative {% if request.endpoint == 'bestellung' %}active{% endif %}"
+             href="{{ url_for('bestellung') }}">
             <i class="bi bi-cart3 me-1"></i>Bestellung
             <span id="nav-order-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="font-size:0.65rem">0</span>
           </a>

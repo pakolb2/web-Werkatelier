@@ -1,6 +1,7 @@
 <!-- ── Shared order panel ─────────────────────────────────────────────────────
      Included by leinwandpreise.html and materialpreise.html.
      order.js must be loaded before this panel is rendered.
+     Click any row to open the edit modal (qty + MwSt).
 ─────────────────────────────────────────────────────────────────────────── -->
 <section id="order-panel" class="mt-4 d-none">
   <div class="card shadow-sm border-success">
@@ -9,6 +10,9 @@
       <span class="fw-semibold">Bestellung</span>
       <span class="badge bg-white text-success ms-1" id="order-count">0</span>
       <div class="ms-auto d-flex gap-2">
+        <a href="{{ url_for('bestellung') }}" class="btn btn-sm btn-light d-print-none">
+          <i class="bi bi-box-arrow-up-right me-1"></i>Vollansicht
+        </a>
         <button id="btn-print-order" class="btn btn-sm btn-light d-none d-print-none">
           <i class="bi bi-file-earmark-pdf me-1"></i>PDF
         </button>
@@ -40,3 +44,36 @@
     </div>
   </div>
 </section>
+
+<!-- ── Edit modal (shared, used by order.js) ────────────────────────────────── -->
+<div class="modal fade" id="order-edit-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title fw-semibold"><i class="bi bi-pencil me-2"></i>Artikel anpassen</h6>
+        <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-secondary small mb-3" id="edit-item-desc"></p>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold mb-1">Anzahl</label>
+          <div class="input-group input-group-sm">
+            <button class="btn btn-outline-secondary" type="button" id="edit-qty-minus">−</button>
+            <input type="number" class="form-control text-center fw-bold" id="edit-qty" min="1" max="99" value="1">
+            <button class="btn btn-outline-secondary" type="button" id="edit-qty-plus">+</button>
+          </div>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="edit-mwst" checked>
+          <label class="form-check-label small fw-semibold" for="edit-mwst">MwSt 8.1% einrechnen</label>
+        </div>
+      </div>
+      <div class="modal-footer py-2 gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="button" class="btn btn-sm btn-success" id="btn-save-edit">
+          <i class="bi bi-check me-1"></i>Speichern
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

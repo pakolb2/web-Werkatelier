@@ -292,9 +292,16 @@ function renderResult(data) {
   $('res-markup-label').textContent = `× ${state.markup.toFixed(1)}`;
   $('res-verkauf').textContent      = data.verkaufspreis;
 
-  // Reset MwSt toggle
-  $('chk-mwst').checked = false;
-  $('mwst-details').classList.add('d-none');
+  // Show MwSt by default
+  $('chk-mwst').checked = true;
+  $('mwst-details').classList.remove('d-none');
+  {
+    const v      = parseFloat(data.verkaufspreis);
+    const mwst   = Math.round(v * 0.081 * 20) / 20;
+    const brutto = Math.round((v + mwst) * 20) / 20;
+    $('res-mwst').textContent   = `${mwst.toFixed(2)} CHF`;
+    $('res-brutto').textContent = `${brutto.toFixed(2)} CHF`;
+  }
 
   // Show action buttons
   ['btn-add-order','btn-compare','btn-chart','btn-copy','btn-print-single'].forEach(id =>

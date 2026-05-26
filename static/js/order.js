@@ -1,9 +1,9 @@
 'use strict';
 
 // ── Shared order module ───────────────────────────────────────────────────────
-// Included on every page that has an order panel.
-// Requires: window.jspdf (jsPDF + AutoTable) to be loaded first.
-// Requires: window.BUSINESS_INFO to be set by the template.
+// Loaded globally from base.html on every page.
+// Requires: window.jspdf (jsPDF + AutoTable) for PDF generation (lazy).
+// Requires: window.BUSINESS_INFO set by the page template.
 
 const ORDER = (() => {
   const KEY = 'wa_order';
@@ -19,10 +19,13 @@ const ORDER = (() => {
     localStorage.setItem(KEY, JSON.stringify(items));
     updateNavBadge();
     renderPanel();
+    document.dispatchEvent(new CustomEvent('wa_order_changed'));
   }
 
   function addItem(item) {
     const items = getItems();
+    if (!('qty'  in item)) item.qty  = 1;
+    if (!('mwst' in item)) item.mwst = true;
     items.push(item);
     _save(items);
   }
@@ -33,10 +36,18 @@ const ORDER = (() => {
     _save(items);
   }
 
+  function updateItem(idx, changes) {
+    const items = getItems();
+    if (idx < 0 || idx >= items.length) return;
+    Object.assign(items[idx], changes);
+    _save(items);
+  }
+
   function clearItems() {
     localStorage.removeItem(KEY);
     updateNavBadge();
     renderPanel();
+    document.dispatchEvent(new CustomEvent('wa_order_changed'));
   }
 
   // ── Nav badge ───────────────────────────────────────────────────────────────
@@ -44,7 +55,7 @@ const ORDER = (() => {
   function updateNavBadge() {
     const badge = el('nav-order-badge');
     if (!badge) return;
-    const count = getItems().length;
+    const count = getItems().reduce((s, i) => s + (i.qty || 1), 0);
     badge.textContent = count;
     badge.classList.toggle('d-none', count === 0);
   }
@@ -59,7 +70,7 @@ const ORDER = (() => {
     if (items.length === 0) { panel.classList.add('d-none'); return; }
 
     panel.classList.remove('d-none');
-    el('order-count').textContent = items.length;
+    el('order-count').textContent = items.reduce((s, i) => s + (i.qty || 1), 0);
     const pBtn = el('btn-print-order');
     if (pBtn) pBtn.classList.remove('d-none');
 
@@ -68,30 +79,39 @@ const ORDER = (() => {
     let total = 0;
 
     items.forEach((item, idx) => {
-      const net   = item.verkauf;
-      const mwst  = item.mwst ? Math.round(net * 0.081 * 20) / 20 : 0;
-      const gross = Math.round((net + mwst) * 20) / 20;
-      total += gross;
+      const qty       = item.qty || 1;
+      const net       = item.verkauf;
+      const mwst      = item.mwst ? Math.round(net * 0.081 * 20) / 20 : 0;
+      const gross     = Math.round((net + mwst) * 20) / 20;
+      const lineTotal = Math.round(gross * qty * 20) / 20;
+      total += lineTotal;
 
       let desc, detail;
       if (item.type === 'material') {
         desc   = item.produkt;
         detail = item.qty_display || '';
       } else {
-        // canvas (or legacy items without type)
         desc   = `${item.size} cm`;
         const support = item.support && item.support !== 'Kein Zwischenstück' ? ` · ${item.support}` : '';
         detail = `${item.fabric} · ${item.wood}${support}`;
       }
 
+      const qtyBadge = qty > 1 ? `<span class="badge bg-secondary me-1">${qty}×</span>` : '';
+
       const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      tr.title = 'Klicken zum Bearbeiten';
       tr.innerHTML = `
-        <td class="fw-semibold small">${desc}</td>
+        <td class="fw-semibold small">${qtyBadge}${desc}</td>
         <td class="text-secondary small">${detail}</td>
-        <td class="text-end font-monospace small">${gross.toFixed(2)}${item.mwst ? '<span class="text-secondary x-small ms-1">*</span>' : ''}</td>
+        <td class="text-end font-monospace small">${lineTotal.toFixed(2)}${item.mwst ? '<span class="text-secondary x-small ms-1">*</span>' : ''}</td>
         <td class="d-print-none text-end">
-          <button class="btn btn-sm btn-outline-danger py-0 px-1 remove-order-item" data-idx="${idx}">×</button>
+          <button class="btn btn-sm btn-outline-danger py-0 px-1 remove-order-item" data-idx="${idx}" title="Entfernen">×</button>
         </td>`;
+      tr.addEventListener('click', e => {
+        if (e.target.closest('.remove-order-item')) return;
+        openEditModal(idx);
+      });
       tbody.appendChild(tr);
     });
 
@@ -102,6 +122,55 @@ const ORDER = (() => {
     document.querySelectorAll('.remove-order-item').forEach(btn =>
       btn.addEventListener('click', () => removeItem(parseInt(btn.dataset.idx)))
     );
+  }
+
+  // ── Edit modal ──────────────────────────────────────────────────────────────
+
+  let _editIdx = -1;
+
+  function openEditModal(idx) {
+    const items = getItems();
+    const item  = items[idx];
+    if (!item) return;
+    _editIdx = idx;
+
+    const descEl = el('edit-item-desc');
+    if (descEl) {
+      descEl.textContent = item.type === 'material'
+        ? item.produkt
+        : `${item.size} cm — ${item.fabric} · ${item.wood}`;
+    }
+    const qtyInp = el('edit-qty');
+    if (qtyInp) qtyInp.value = item.qty || 1;
+    const mwstChk = el('edit-mwst');
+    if (mwstChk) mwstChk.checked = item.mwst !== false;
+
+    const modalEl = el('order-edit-modal');
+    if (modalEl) new bootstrap.Modal(modalEl).show();
+  }
+
+  function _bindEditModal() {
+    const saveBtn  = el('btn-save-edit');
+    const minusBtn = el('edit-qty-minus');
+    const plusBtn  = el('edit-qty-plus');
+    if (!saveBtn) return;
+
+    saveBtn.addEventListener('click', () => {
+      if (_editIdx < 0) return;
+      const qty  = Math.max(1, parseInt(el('edit-qty')?.value || 1));
+      const mwst = el('edit-mwst')?.checked ?? true;
+      updateItem(_editIdx, { qty, mwst });
+      _editIdx = -1;
+      bootstrap.Modal.getInstance(el('order-edit-modal'))?.hide();
+    });
+    minusBtn?.addEventListener('click', () => {
+      const inp = el('edit-qty');
+      if (inp) inp.value = Math.max(1, parseInt(inp.value || 1) - 1);
+    });
+    plusBtn?.addEventListener('click', () => {
+      const inp = el('edit-qty');
+      if (inp) inp.value = Math.min(99, parseInt(inp.value || 1) + 1);
+    });
   }
 
   // ── Shared PDF helpers ──────────────────────────────────────────────────────
@@ -131,7 +200,7 @@ const ORDER = (() => {
 
     doc.setDrawColor(200); doc.setLineWidth(0.4);
     doc.line(ML, 50, W - MR, 50);
-    return 58; // Y position after header
+    return 58;
   }
 
   function drawPDFFooter(doc, W, ML, MR) {
@@ -147,30 +216,27 @@ const ORDER = (() => {
     if (parts.length) { doc.setFont('helvetica', 'normal'); doc.text(parts.join('   ·   '), ML, fLine); }
   }
 
-  // ── Order PDF ───────────────────────────────────────────────────────────────
+  // ── PDF builder (shared core) ───────────────────────────────────────────────
 
-  function generatePDF() {
-    if (!window.jspdf) { alert('PDF-Bibliothek noch nicht geladen — kurz warten.'); return; }
+  function _buildPDFDoc() {
+    if (!window.jspdf) return null;
     const items = getItems();
-    if (items.length === 0) { alert('Keine Artikel in der Bestellung.'); return; }
+    if (!items.length) return null;
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = 210, ML = 15, MR = 15;
     let Y = drawPDFHeader(doc, W, ML, MR);
 
-    // Section title
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(30);
     doc.text('Bestellung / Offerte', ML, Y); Y += 8;
 
-    // Separate canvas and material items for display grouping
-    const canvasItems   = items.filter(i => !i.type || i.type === 'canvas');
-    const materialItems = items.filter(i => i.type === 'material');
-
-    const buildRows = arr => arr.map(item => {
-      const net   = item.verkauf;
-      const mwst  = item.mwst ? Math.round(net * 0.081 * 20) / 20 : 0;
-      const gross = Math.round((net + mwst) * 20) / 20;
+    const allRows = items.map(item => {
+      const qty       = item.qty || 1;
+      const net       = item.verkauf;
+      const mwst      = item.mwst ? Math.round(net * 0.081 * 20) / 20 : 0;
+      const gross     = Math.round((net + mwst) * 20) / 20;
+      const lineTotal = Math.round(gross * qty * 20) / 20;
       let desc, detail;
       if (item.type === 'material') {
         desc   = item.produkt;
@@ -180,28 +246,28 @@ const ORDER = (() => {
         const sup = item.support && item.support !== 'Kein Zwischenstück' ? ` · ${item.support}` : '';
         detail = `${item.fabric} · ${item.wood}${sup}`;
       }
-      return [desc, detail, `CHF ${gross.toFixed(2)}${item.mwst ? ' *' : ''}`];
+      const qtyStr = qty > 1 ? `${qty}× ` : '';
+      return [`${qtyStr}${desc}`, detail, `CHF ${lineTotal.toFixed(2)}${item.mwst ? ' *' : ''}`];
     });
-
-    const allRows = buildRows(items);
 
     doc.autoTable({
       startY: Y,
       head: [['Beschreibung', 'Details', 'CHF']],
       body: allRows,
-      styles:           { fontSize: 9, cellPadding: 2.5 },
-      headStyles:       { fillColor: [25, 135, 84], textColor: 255, fontStyle: 'bold' },
+      styles:             { fontSize: 9, cellPadding: 2.5 },
+      headStyles:         { fillColor: [25, 135, 84], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 249, 250] },
-      columnStyles:     { 2: { halign: 'right', fontStyle: 'bold' } },
-      margin:           { left: ML, right: MR },
+      columnStyles:       { 2: { halign: 'right', fontStyle: 'bold' } },
+      margin:             { left: ML, right: MR },
     });
 
     Y = doc.lastAutoTable.finalY + 6;
 
-    // Total
     const total = items.reduce((s, item) => {
-      const mwst = item.mwst ? Math.round(item.verkauf * 0.081 * 20) / 20 : 0;
-      return s + Math.round((item.verkauf + mwst) * 20) / 20;
+      const qty   = item.qty || 1;
+      const mwst  = item.mwst ? Math.round(item.verkauf * 0.081 * 20) / 20 : 0;
+      const gross = Math.round((item.verkauf + mwst) * 20) / 20;
+      return s + Math.round(gross * qty * 20) / 20;
     }, 0);
 
     const cR = W - MR, cL = cR - 68;
@@ -216,8 +282,25 @@ const ORDER = (() => {
     }
 
     drawPDFFooter(doc, W, ML, MR);
+    return doc;
+  }
+
+  // ── Order PDF ───────────────────────────────────────────────────────────────
+
+  function generatePDF() {
+    if (!window.jspdf) { alert('PDF-Bibliothek noch nicht geladen — kurz warten.'); return; }
+    const items = getItems();
+    if (!items.length) { alert('Keine Artikel in der Bestellung.'); return; }
+    const doc = _buildPDFDoc();
+    if (!doc) return;
     const today = new Date().toLocaleDateString('de-CH').replace(/\./g, '-');
     doc.save(`Bestellung_${today}.pdf`);
+  }
+
+  function generatePDFBlobUrl() {
+    const doc = _buildPDFDoc();
+    if (!doc) return null;
+    return doc.output('bloburl');
   }
 
   // ── Init ─────────────────────────────────────────────────────────────────────
@@ -229,9 +312,16 @@ const ORDER = (() => {
     if (clearBtn) clearBtn.addEventListener('click', clearItems);
     const printBtn = el('btn-print-order');
     if (printBtn) printBtn.addEventListener('click', generatePDF);
+    _bindEditModal();
   }
 
   init();
 
-  return { getItems, addItem, removeItem, clearItems, renderPanel, updateNavBadge, generatePDF, drawPDFHeader, drawPDFFooter };
+  return {
+    getItems, addItem, removeItem, updateItem, clearItems,
+    renderPanel, updateNavBadge,
+    generatePDF, generatePDFBlobUrl,
+    drawPDFHeader, drawPDFFooter,
+    openEditModal,
+  };
 })();
