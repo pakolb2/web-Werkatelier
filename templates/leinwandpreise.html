@@ -26,8 +26,13 @@
   <div class="col-lg-5 d-print-none">
 
     <div class="card shadow-sm mb-3">
-      <div class="card-body pb-3">
-        <label class="form-label fw-semibold text-uppercase small text-secondary ls-1">Material</label>
+      <div class="card-header small fw-semibold text-secondary bg-light py-2">
+        <i class="bi bi-sliders me-1"></i>Konfiguration
+      </div>
+      <div class="card-body py-3">
+
+        <!-- Material -->
+        <p class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-2">Material</p>
         <div class="d-flex gap-2">
           <button class="btn btn-material flex-fill" id="btn-baumwolle" data-val="Baumwolle">
             <span class="d-block fw-bold">Baumwolle</span><span class="small opacity-75">Arles</span>
@@ -39,12 +44,11 @@
         <div id="alert-leinen" class="alert alert-warning mt-2 mb-0 py-2 small d-none">
           <i class="bi bi-exclamation-triangle me-1"></i>Rolle nur 2 m breit — Breite über 180 cm prüfen!
         </div>
-      </div>
-    </div>
 
-    <div class="card shadow-sm mb-3">
-      <div class="card-body pb-3">
-        <label class="form-label fw-semibold text-uppercase small text-secondary ls-1">Masse</label>
+        <hr class="my-3">
+
+        <!-- Masse -->
+        <p class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-2">Masse</p>
         <div class="row g-2 mb-2">
           <div class="col-6">
             <label class="form-label small mb-1 text-secondary">Länge [cm]</label>
@@ -56,12 +60,11 @@
           </div>
         </div>
         <div id="dim-info" class="text-secondary small"></div>
-      </div>
-    </div>
 
-    <div class="card shadow-sm mb-3">
-      <div class="card-body pb-3">
-        <label class="form-label fw-semibold text-uppercase small text-secondary ls-1">Holzrahmen</label>
+        <hr class="my-3">
+
+        <!-- Holzrahmen -->
+        <p class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-2">Holzrahmen</p>
         <div class="d-flex gap-2">
           <button class="btn btn-wood flex-fill" data-val="classic_single">
             <span class="d-block fw-semibold small">Classic 45</span>
@@ -76,13 +79,12 @@
             <span class="d-block x-small opacity-75">4.5 cm</span>
           </button>
         </div>
-      </div>
-    </div>
 
-    <div class="card shadow-sm mb-3">
-      <div class="card-body pb-2">
+        <hr class="my-3">
+
+        <!-- Zwischenstücke -->
         <div class="d-flex align-items-center justify-content-between mb-2">
-          <label class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-0">Zwischenstücke</label>
+          <p class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-0">Zwischenstücke</p>
           <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="support-override-toggle">
             <label class="form-check-label small text-secondary" for="support-override-toggle">Manuell</label>
@@ -106,19 +108,19 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div class="card shadow-sm mb-3">
-      <div class="card-body pb-3">
+        <hr class="my-3">
+
+        <!-- Aufschlagsfaktor -->
         <div class="d-flex align-items-center justify-content-between mb-1">
-          <label class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-0">Aufschlagsfaktor</label>
+          <p class="form-label fw-semibold text-uppercase small text-secondary ls-1 mb-0">Aufschlagsfaktor</p>
           <span class="badge bg-secondary fs-6 px-2" id="markup-display">× 4.2</span>
         </div>
         <input type="range" class="form-range" id="markup-slider" min="1.0" max="8.0" step="0.1" value="4.2">
         <div class="d-flex justify-content-between x-small text-secondary">
           <span>1.0×</span><span>Kostendeckend → Marktpreis</span><span>8.0×</span>
         </div>
+
       </div>
     </div>
 

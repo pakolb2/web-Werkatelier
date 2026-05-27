@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
   <div class="container">
@@ -40,6 +40,9 @@
             <span id="nav-order-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="font-size:0.65rem">0</span>
           </a>
         </li>
+        <li class="nav-item d-none d-lg-flex align-items-center px-1">
+          <div class="vr opacity-25" style="height:1.4rem"></div>
+        </li>
         <li class="nav-item">
           <a class="nav-link {% if request.endpoint == 'preisliste' %}active{% endif %}"
              href="{{ url_for('preisliste') }}">
@@ -63,11 +66,11 @@
   </div>
 </nav>
 
-<main class="container py-4">
+<main class="container py-4 flex-grow-1">
   {% block content %}{% endblock %}
 </main>
 
-<footer class="bg-dark text-secondary text-center py-3 mt-5 small">
+<footer class="bg-dark text-secondary text-center py-3 small">
   Werkatelier &copy; 2025
 </footer>
 

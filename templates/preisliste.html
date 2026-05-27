@@ -63,13 +63,13 @@
         <td class="text-end font-monospace baumwolle-col price-cell"
             data-size="{{ row.label }}" data-fabric="Baumwolle" data-wood="{{ wood }}"
             data-support="{{ row.support }}" data-price="{{ row.prices.Baumwolle[wood] }}"
-            title="Zur Bestellung hinzufügen">{{ "%.2f"|format(row.prices.Baumwolle[wood]) }}</td>
+            title="Zur Bestellung hinzufügen">{{ row.prices.Baumwolle[wood] }}</td>
         {% endfor %}
         {% for wood in ["classic_single", "classic_double", "museo"] %}
         <td class="text-end font-monospace leinen-col price-cell"
             data-size="{{ row.label }}" data-fabric="Leinen" data-wood="{{ wood }}"
             data-support="{{ row.support }}" data-price="{{ row.prices.Leinen[wood] }}"
-            title="Zur Bestellung hinzufügen">{{ "%.2f"|format(row.prices.Leinen[wood]) }}</td>
+            title="Zur Bestellung hinzufügen">{{ row.prices.Leinen[wood] }}</td>
         {% endfor %}
       </tr>
       {% endfor %}
